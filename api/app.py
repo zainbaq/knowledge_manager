@@ -8,8 +8,18 @@ from vector_store.vector_index import add_documents_to_index, query_index, compi
 import uuid
 import os
 import tempfile
+from config import CORS_ORIGINS
 
 app = FastAPI()
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[CORS_ORIGINS],  # NEVER use "*" in production
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 class QueryRequest(BaseModel):
     query: str

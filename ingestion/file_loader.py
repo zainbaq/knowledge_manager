@@ -1,8 +1,9 @@
 from pathlib import Path
 import fitz  # PyMuPDF
 import docx
+from config import ALLOWED_FILE_EXTENSIONS
 
-SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx"}
+SUPPORTED_EXTENSIONS = ALLOWED_FILE_EXTENSIONS
 
 def collect_files_from_path(path):
     files = []

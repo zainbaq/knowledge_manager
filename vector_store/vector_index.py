@@ -1,9 +1,10 @@
 import chromadb
 from chromadb.config import Settings
+from config import VECTOR_DB_PATH
 
 import chromadb
 
-client = chromadb.PersistentClient(path="./data/vector_index")
+client = chromadb.PersistentClient(path=VECTOR_DB_PATH)
 
 def get_or_create_collection(name="default"):
     return client.get_or_create_collection(name=name)

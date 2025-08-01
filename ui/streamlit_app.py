@@ -90,7 +90,6 @@ elif page == "View Indexes":
                                     if del_res.status_code == 200:
                                         st.success(del_res.json()["message"])
                                         del st.session_state["pending_delete"]
-                                        st.experimental_rerun()
                                     else:
                                         st.error(f"Delete failed: {del_res.json().get('error')}")
 
