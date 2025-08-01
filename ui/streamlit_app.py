@@ -31,13 +31,21 @@ if page == "Upload Files":
 # Query Page
 elif page == "Query Index":
     st.markdown("### Query Your Index")
-    user_index_name = st.text_input("Index name")
+    try:
+        res = requests.get("http://127.0.0.1:8000/list-indexes/")
+        index_options = [idx["collection_name"] for idx in res.json()] if res.status_code == 200 else []
+    except Exception:
+        index_options = []
+
+    selected_indexes = st.multiselect("Select indexes", options=index_options)
     query = st.text_input("Ask a question")
 
-    if st.button("Submit Query") and query and user_index_name:
-        collection = user_index_name.strip()
+    if st.button("Submit Query") and query and selected_indexes:
         with st.spinner("Thinking..."):
-            res = requests.post("http://127.0.0.1:8000/query/", json={"query": query, "collection": collection})
+            res = requests.post(
+                "http://127.0.0.1:8000/multi-query/",
+                json={"query": query, "collections": selected_indexes},
+            )
 
             if res.status_code == 200:
                 context = res.json()["context"]
