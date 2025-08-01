@@ -11,6 +11,7 @@ from vector_store.embedder import get_openai_embedding
 from vector_store.vector_index import (
     add_documents_to_index,
     query_index,
+    query_multiple_indexes,
     compile_context,
     list_collections_with_metadata,
     delete_collection
@@ -39,6 +40,11 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     query: str
     collection: str
+
+
+class MultiQueryRequest(BaseModel):
+    query: str
+    collections: list[str]
 
 async def _process_single_file(file: UploadFile, chunker) -> tuple[List[str], List, List[dict], List[str]]:
     """Extract text, chunk it and generate embeddings for one file."""
@@ -123,6 +129,17 @@ async def query(request: QueryRequest):
     """Return relevant context for ``request.query`` from the index."""
     try:
         results = query_index(request.collection, request.query)
+        context = compile_context(results)
+        return {"context": context, "raw_results": results}
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@app.post("/multi-query/")
+async def multi_query(request: MultiQueryRequest):
+    """Return context from multiple indexes for ``request.query``."""
+    try:
+        results = query_multiple_indexes(request.collections, request.query)
         context = compile_context(results)
         return {"context": context, "raw_results": results}
     except Exception as e:

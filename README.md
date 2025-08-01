@@ -84,6 +84,7 @@ Then open:
 | POST   | `/create-index/`          | Upload files and create index   |
 | POST   | `/update-index/`          | Add files to existing index     |
 | POST   | `/query/`                 | Ask questions about an index    |
+| POST   | `/multi-query/`           | Search across multiple indexes |
 | GET    | `/list-indexes/`          | View collections and metadata   |
 | DELETE | `/delete-index/{name}`    | Delete a collection             |
 
@@ -92,7 +93,7 @@ Then open:
 ## 📌 Roadmap Ideas
 
 - [ ] Full file preview in UI
-- [ ] Multi-index search
+- [x] Multi-index search
 - [ ] Support for local embedding models (offline mode)
 - [ ] User authentication
 - [ ] Export/Import indexes

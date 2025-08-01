@@ -31,6 +31,41 @@ def query_index(collection_name, query_text, n_results=5):
     )
     return results
 
+
+def query_multiple_indexes(collection_names: list[str], query_text: str, n_results: int = 5):
+    """Query several indexes and return aggregated results sorted by distance."""
+    from vector_store.embedder import get_openai_embedding
+
+    embedding = get_openai_embedding(query_text)
+
+    aggregated = []
+
+    for name in collection_names:
+        collection = get_or_create_collection(name)
+        res = collection.query(query_embeddings=[embedding], n_results=n_results)
+        ids = res.get("ids", [[]])[0]
+        docs = res.get("documents", [[]])[0]
+        metas = res.get("metadatas", [[]])[0]
+        dists = res.get("distances", [[]])[0]
+
+        for doc_id, doc, meta, dist in zip(ids, docs, metas, dists):
+            aggregated.append((dist, doc_id, doc, meta))
+
+    # sort by distance (lower is more relevant)
+    aggregated.sort(key=lambda x: x[0])
+
+    ids = [a[1] for a in aggregated]
+    docs = [a[2] for a in aggregated]
+    metas = [a[3] for a in aggregated]
+    dists = [a[0] for a in aggregated]
+
+    return {
+        "ids": [ids],
+        "documents": [docs],
+        "metadatas": [metas],
+        "distances": [dists],
+    }
+
 def compile_context(query_results):
     """Flatten query results into a list of unique context documents."""
     documents = [r for r in query_results['documents'][0] if r is not None]
