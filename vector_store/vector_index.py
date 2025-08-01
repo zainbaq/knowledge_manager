@@ -44,7 +44,7 @@ def list_collections_with_metadata():
             results.append({
                 "collection_name": name,
                 "files": unique_sources,
-                "num_chunks": len(docs["ids"])
+                "num_chunks": len(docs["ids"]),
             })
         except Exception as e:
             results.append({
