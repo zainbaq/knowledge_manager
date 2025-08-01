@@ -1,3 +1,5 @@
+"""Convenience script that launches the backend and UI together."""
+
 import subprocess
 import os
 import sys

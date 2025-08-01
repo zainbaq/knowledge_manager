@@ -1,3 +1,5 @@
+"""Streamlit frontend for interacting with the knowledge indexer."""
+
 import streamlit as st
 import requests
 
@@ -6,6 +8,7 @@ st.set_page_config(page_title="Knowledge Indexer", layout="centered")
 st.title("📚 Knowledge Indexer")
 
 # Navigation
+# Simple navigation between app sections
 page = st.sidebar.selectbox("Go to", ["Upload Files", "Query Index", "View Indexes"])
 
 # Upload Page
