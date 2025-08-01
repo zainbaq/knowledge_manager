@@ -2,7 +2,9 @@
 
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
 from ingestion.file_loader import extract_text_from_file
 from ingestion.chunker import simple_text_chunker, token_text_chunker
 from vector_store.embedder import get_openai_embedding
@@ -10,7 +12,10 @@ from vector_store.vector_index import (
     add_documents_to_index,
     query_index,
     compile_context,
+    list_collections_with_metadata,
+    delete_collection
 )
+# from fastapi import Path
 import uuid
 import os
 import tempfile
@@ -122,10 +127,6 @@ async def query(request: QueryRequest):
         return {"context": context, "raw_results": results}
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
-    
-import os
-
-from vector_store.vector_index import list_collections_with_metadata
 
 @app.get("/list-indexes/")
 async def list_indexes():
@@ -135,11 +136,8 @@ async def list_indexes():
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-from fastapi import Path
-from vector_store.vector_index import delete_collection
-
 @app.delete("/delete-index/{collection_name}")
-async def delete_index(collection_name: str = Path(...)):
+async def delete_index(collection_name: str):
     """Delete an entire collection from the vector store."""
     result = delete_collection(collection_name)
     if "error" in result:
