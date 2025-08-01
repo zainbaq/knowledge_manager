@@ -4,12 +4,19 @@ from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from ingestion.file_loader import extract_text_from_file
-from ingestion.chunker import simple_text_chunker
+from ingestion.chunker import simple_text_chunker, token_text_chunker
 from vector_store.embedder import get_openai_embedding
-from vector_store.vector_index import add_documents_to_index, query_index, compile_context
+from vector_store.vector_index import (
+    add_documents_to_index,
+    query_index,
+    compile_context,
+)
 import uuid
 import os
 import tempfile
+import asyncio
+from typing import Iterable, List
+from pathlib import Path
 from config import CORS_ORIGINS
 
 app = FastAPI()
@@ -28,43 +35,67 @@ class QueryRequest(BaseModel):
     query: str
     collection: str
 
-def process_files(files, collection):
-    """Read uploaded files and add them to the vector store."""
-    all_chunks, all_embeddings, all_metas, all_ids = [], [], [], []
+async def _process_single_file(file: UploadFile, chunker) -> tuple[List[str], List, List[dict], List[str]]:
+    """Extract text, chunk it and generate embeddings for one file."""
 
-    for file in files:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file.filename) as tmp:
-            tmp.write(file.file.read())
-            tmp_path = tmp.name
+    with tempfile.NamedTemporaryFile(delete=False, suffix=file.filename) as tmp:
+        tmp.write(file.file.read())
+        tmp_path = tmp.name
 
-        from pathlib import Path
-        content = extract_text_from_file(Path(tmp_path))
+    content = await asyncio.to_thread(extract_text_from_file, Path(tmp_path))
+    os.remove(tmp_path)
 
-        os.remove(tmp_path)
+    if not content:
+        print(f"Skipped: {file.filename}")
+        return [], [], [], []
 
-        if not content:
-            print(f"Skipped: {file.filename}")
-            continue
+    chunks = list(chunker(content))
 
-        chunks = simple_text_chunker(content)
-        for i, chunk in enumerate(chunks):
-            embedding = get_openai_embedding(chunk)
-            all_chunks.append(chunk)
-            all_embeddings.append(embedding)
-            all_metas.append({"source": file.filename, "chunk_index": i})
-            all_ids.append(str(uuid.uuid4()))
+    embeddings = []
+    for chunk in chunks:
+        embedding = await asyncio.to_thread(get_openai_embedding, chunk)
+        embeddings.append(embedding)
+
+    metas = [{"source": file.filename, "chunk_index": i} for i in range(len(chunks))]
+    ids = [str(uuid.uuid4()) for _ in chunks]
+
+    return chunks, embeddings, metas, ids
+
+
+async def process_files(files: Iterable[UploadFile], collection: str, chunker=token_text_chunker) -> int:
+    """Process and index multiple uploaded files asynchronously."""
+
+    tasks = [asyncio.create_task(_process_single_file(file, chunker)) for file in files]
+    results = await asyncio.gather(*tasks)
+
+    all_chunks: List[str] = []
+    all_embeddings: List = []
+    all_metas: List[dict] = []
+    all_ids: List[str] = []
+
+    for chunks, embeddings, metas, ids in results:
+        all_chunks.extend(chunks)
+        all_embeddings.extend(embeddings)
+        all_metas.extend(metas)
+        all_ids.extend(ids)
 
     if all_chunks:
-        add_documents_to_index(collection, all_chunks, all_embeddings, all_metas, all_ids)
+        await asyncio.to_thread(
+            add_documents_to_index,
+            collection,
+            all_chunks,
+            all_embeddings,
+            all_metas,
+            all_ids,
+        )
         return len(all_chunks)
-    else:
-        return 0
+    return 0
 
 @app.post("/create-index/")
 async def create_index(collection: str = Form(...), files: list[UploadFile] = File(...)):
     """Create a new collection and ingest the given files."""
     try:
-        count = process_files(files, collection)
+        count = await process_files(files, collection)
         if count == 0:
             return JSONResponse(content={"error": "No valid files"}, status_code=400)
         return {"message": f"Created index and ingested {count} chunks into '{collection}'"}
@@ -75,7 +106,7 @@ async def create_index(collection: str = Form(...), files: list[UploadFile] = Fi
 async def update_index(collection: str = Form(...), files: list[UploadFile] = File(...)):
     """Append new files to an existing collection."""
     try:
-        count = process_files(files, collection)
+        count = await process_files(files, collection)
         if count == 0:
             return JSONResponse(content={"error": "No valid files"}, status_code=400)
         return {"message": f"Updated '{collection}' with {count} new chunks"}
