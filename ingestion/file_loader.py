@@ -8,11 +8,11 @@ SUPPORTED_EXTENSIONS = ALLOWED_FILE_EXTENSIONS
 def collect_files_from_path(path):
     files = []
     path = Path(path)
-    if path.is_file() and path.suffix in SUPPORTED_EXTENSIONS:
+    if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS:
         files.append(path)
     elif path.is_dir():
         for file in path.rglob("*"):
-            if file.suffix in SUPPORTED_EXTENSIONS:
+            if file.suffix.lower() in SUPPORTED_EXTENSIONS:
                 files.append(file)
     return files
 

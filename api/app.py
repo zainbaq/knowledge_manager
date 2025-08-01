@@ -14,9 +14,10 @@ app = FastAPI()
 
 from fastapi.middleware.cors import CORSMiddleware
 
+# Configure CORS. `CORS_ORIGINS` is already a list, so pass it directly
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[CORS_ORIGINS],  # NEVER use "*" in production
+    allow_origins=CORS_ORIGINS,  # NEVER use "*" in production
     allow_methods=["*"],
     allow_headers=["*"]
 )
