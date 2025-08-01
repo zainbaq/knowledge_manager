@@ -1,0 +1,10 @@
+openai
+chromadb
+python-dotenv
+python-docx
+PyMuPDF
+fastapi
+uvicorn
+python-multipart
+streamlit
+requests
