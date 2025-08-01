@@ -1,3 +1,5 @@
+"""FastAPI routes for managing document indexes and querying them."""
+
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -32,7 +34,6 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     query: str
     collection: str
-
 
 async def _process_single_file(file: UploadFile, chunker) -> tuple[List[str], List, List[dict], List[str]]:
     """Extract text, chunk it and generate embeddings for one file."""
@@ -92,6 +93,7 @@ async def process_files(files: Iterable[UploadFile], collection: str, chunker=to
 
 @app.post("/create-index/")
 async def create_index(collection: str = Form(...), files: list[UploadFile] = File(...)):
+    """Create a new collection and ingest the given files."""
     try:
         count = await process_files(files, collection)
         if count == 0:
@@ -102,6 +104,7 @@ async def create_index(collection: str = Form(...), files: list[UploadFile] = Fi
 
 @app.post("/update-index/")
 async def update_index(collection: str = Form(...), files: list[UploadFile] = File(...)):
+    """Append new files to an existing collection."""
     try:
         count = await process_files(files, collection)
         if count == 0:
@@ -112,6 +115,7 @@ async def update_index(collection: str = Form(...), files: list[UploadFile] = Fi
 
 @app.post("/query/")
 async def query(request: QueryRequest):
+    """Return relevant context for ``request.query`` from the index."""
     try:
         results = query_index(request.collection, request.query)
         context = compile_context(results)
@@ -125,6 +129,7 @@ from vector_store.vector_index import list_collections_with_metadata
 
 @app.get("/list-indexes/")
 async def list_indexes():
+    """List all available collections with basic metadata."""
     try:
         return list_collections_with_metadata()
     except Exception as e:
@@ -135,6 +140,7 @@ from vector_store.vector_index import delete_collection
 
 @app.delete("/delete-index/{collection_name}")
 async def delete_index(collection_name: str = Path(...)):
+    """Delete an entire collection from the vector store."""
     result = delete_collection(collection_name)
     if "error" in result:
         return JSONResponse(content=result, status_code=500)

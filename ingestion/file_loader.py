@@ -1,3 +1,5 @@
+"""Utility functions for gathering files and reading their contents."""
+
 from pathlib import Path
 import fitz  # PyMuPDF
 import docx
@@ -6,6 +8,7 @@ from config import ALLOWED_FILE_EXTENSIONS
 SUPPORTED_EXTENSIONS = ALLOWED_FILE_EXTENSIONS
 
 def collect_files_from_path(path):
+    """Return all files under *path* that match supported extensions."""
     files = []
     path = Path(path)
     if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS:
@@ -17,6 +20,7 @@ def collect_files_from_path(path):
     return files
 
 def extract_text_from_file(path):
+    """Read a file from disk and return its textual content."""
     ext = path.suffix.lower()
     try:
         if ext == ".txt" or ext == ".md":
@@ -35,6 +39,7 @@ def extract_text_from_file(path):
         return ""
 
 def extract_text_from_pdf(path):
+    """Extract text from a PDF file using PyMuPDF."""
     doc = fitz.open(path)
     text = ""
     for page in doc:
@@ -42,5 +47,6 @@ def extract_text_from_pdf(path):
     return text
 
 def extract_text_from_docx(path):
+    """Extract text from a Microsoft Word document."""
     doc = docx.Document(path)
     return "\n".join([para.text for para in doc.paragraphs])
