@@ -28,8 +28,6 @@ from .auth import verify_api_key
 
 app = FastAPI()
 
-from fastapi.middleware.cors import CORSMiddleware
-
 # Configure CORS. `CORS_ORIGINS` is already a list, so pass it directly
 app.add_middleware(
     CORSMiddleware,
