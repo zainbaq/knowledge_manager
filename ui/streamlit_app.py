@@ -265,7 +265,6 @@ elif page == "Account":
         if st.button("Use Selected Key") and selected_key:
             st.session_state.api_key = selected_key
             st.success("API key set for session")
-            st.experimental_rerun()
 
     if st.session_state.username and st.session_state.password:
         if st.button("Create New API Key"):
@@ -281,7 +280,6 @@ elif page == "Account":
                 st.session_state.api_keys.append(new_key)
                 st.session_state.api_key = new_key
                 st.success(f"New API key generated: {new_key}")
-                st.experimental_rerun()
             else:
                 st.error(res.json().get("detail", "Failed to generate key"))
 
@@ -296,4 +294,3 @@ elif page == "Account":
                 if key in st.session_state:
                     del st.session_state[key]
             st.success("Logged out")
-            st.experimental_rerun()
