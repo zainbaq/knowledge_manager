@@ -4,15 +4,16 @@ from fastapi import HTTPException, Security
 from fastapi.security import APIKeyHeader
 from starlette.status import HTTP_401_UNAUTHORIZED
 
-from config import API_KEYS
+from .users import get_user_by_api_key
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
-def verify_api_key(api_key: str = Security(api_key_header)) -> str:
-    """Validate provided API key against allowed keys."""
-    if api_key in API_KEYS:
-        return api_key
+def get_current_user(api_key: str = Security(api_key_header)) -> dict:
+    """Return the user associated with the provided API key."""
+    user = get_user_by_api_key(api_key)
+    if user:
+        return user
     raise HTTPException(
         status_code=HTTP_401_UNAUTHORIZED,
         detail="Invalid or missing API key",
