@@ -182,6 +182,33 @@ async def delete_index(
         return JSONResponse(content=result, status_code=500)
     return result
 
+# Add to api/app.py
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+import subprocess
+import threading
+import time
+
+# Start Streamlit in background thread
+def start_streamlit():
+    subprocess.run([
+        "streamlit", "run", "ui/streamlit_app.py", 
+        "--server.port", "8501",
+        "--server.address", "0.0.0.0"
+    ])
+
+# Start Streamlit when FastAPI starts
+@app.on_event("startup")
+async def startup_event():
+    threading.Thread(target=start_streamlit, daemon=True).start()
+    time.sleep(5)  # Give Streamlit time to start
+
+# Proxy Streamlit through FastAPI
+@app.get("/ui")
+async def streamlit_ui():
+    return HTMLResponse("""
+    <iframe src="http://localhost:8501" width="100%" height="800px"></iframe>
+    """)
 
 
 

@@ -26,3 +26,6 @@ MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "25"))
 
 # === Debug Mode ===
 DEBUG = os.getenv("DEBUG", "true").lower() == "true"
+
+# === Heroku/Production Settings ===
+PORT = int(os.getenv("PORT", 8000))  # Heroku provides PORT env var

@@ -2,8 +2,12 @@
 
 import streamlit as st
 import requests
+import os
 
-API_URL = "http://127.0.0.1:8000"
+# Base URL for the backend API. Defaults to a relative path so that the
+# frontend and backend can run on the same host. Configure the API_URL
+# environment variable if the backend is hosted elsewhere.
+API_URL = os.getenv("API_URL", "").rstrip("/")
 
 # Session state defaults
 if "api_key" not in st.session_state:
