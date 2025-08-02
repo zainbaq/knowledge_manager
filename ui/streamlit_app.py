@@ -5,8 +5,27 @@ import requests
 
 API_URL = "http://127.0.0.1:8000"
 
-# Sidebar controls
-api_key = st.sidebar.text_input("API Key", type="password")
+# Session state defaults
+if "api_key" not in st.session_state:
+    st.session_state.api_key = ""
+if "api_keys" not in st.session_state:
+    st.session_state.api_keys: list[str] = []
+if "username" not in st.session_state:
+    st.session_state.username = ""
+if "password" not in st.session_state:
+    st.session_state.password = ""
+
+# Sidebar controls - reflect stored API key
+api_key_input = st.sidebar.text_input(
+    "API Key",
+    type="password",
+    key="api_key_input",
+    value=st.session_state.get("api_key", ""),
+)
+if api_key_input != st.session_state.api_key:
+    st.session_state.api_key = api_key_input
+
+api_key = st.session_state.api_key
 headers = {"X-API-Key": api_key} if api_key else {}
 
 # Set up page
@@ -15,10 +34,12 @@ st.title("📚 Knowledge Indexer")
 
 # Navigation
 # Simple navigation between app sections
-page = st.sidebar.selectbox("Go to", ["Upload Files", "Query Index", "View Indexes"])
+page = st.sidebar.selectbox(
+    "Go to", ["Upload Files", "Query Index", "View Indexes", "Account"]
+)
 
-if not api_key:
-    st.warning("Enter your API key in the sidebar to use the app.")
+if page != "Account" and not api_key:
+    st.warning("Enter your API key in the sidebar or log in via Account page.")
 
 # Upload Page
 if page == "Upload Files":
@@ -192,3 +213,88 @@ elif page == "View Indexes":
             st.error(f"Error: {str(e)}")
     else:
         st.info("Enter API key to view indexes.")
+
+# Account management page
+elif page == "Account":
+    st.markdown("### 🔐 Account Management")
+
+    st.subheader("Register")
+    with st.form("register_form"):
+        reg_user = st.text_input("Username", key="register_username")
+        reg_pass = st.text_input(
+            "Password", type="password", key="register_password"
+        )
+        submitted = st.form_submit_button("Create Account")
+    if submitted and reg_user and reg_pass:
+        res = requests.post(
+            f"{API_URL}/user/register",
+            json={"username": reg_user, "password": reg_pass},
+        )
+        if res.status_code == 200:
+            st.success(res.json().get("message", "Registered"))
+        else:
+            detail = res.json().get("detail", "Registration failed")
+            st.error(detail)
+
+    st.subheader("Login")
+    with st.form("login_form"):
+        login_user = st.text_input("Username", key="login_username")
+        login_pass = st.text_input(
+            "Password", type="password", key="login_password"
+        )
+        login_submitted = st.form_submit_button("Login")
+    if login_submitted and login_user and login_pass:
+        res = requests.post(
+            f"{API_URL}/user/login",
+            json={"username": login_user, "password": login_pass},
+        )
+        if res.status_code == 200:
+            st.success(res.json().get("message", "Login successful"))
+            st.session_state.username = login_user
+            st.session_state.password = login_pass
+            st.session_state.api_keys = res.json().get("api_keys", [])
+        else:
+            st.error(res.json().get("detail", "Login failed"))
+
+    if st.session_state.api_keys:
+        st.markdown("#### Existing API Keys")
+        selected_key = st.selectbox(
+            "Choose an API key",
+            st.session_state.api_keys,
+            key="existing_api_keys",
+        )
+        if st.button("Use Selected Key") and selected_key:
+            st.session_state.api_key = selected_key
+            st.session_state.api_key_input = selected_key
+            st.success("API key set for session")
+
+    if st.session_state.username and st.session_state.password:
+        if st.button("Create New API Key"):
+            res = requests.post(
+                f"{API_URL}/user/create-api-key",
+                json={
+                    "username": st.session_state.username,
+                    "password": st.session_state.password,
+                },
+            )
+            if res.status_code == 200:
+                new_key = res.json().get("api_key")
+                st.session_state.api_keys.append(new_key)
+                st.session_state.api_key = new_key
+                st.session_state.api_key_input = new_key
+                st.success(f"New API key generated: {new_key}")
+            else:
+                st.error(res.json().get("detail", "Failed to generate key"))
+
+        if st.button("Logout"):
+            for key in [
+                "api_key",
+                "api_key_input",
+                "username",
+                "password",
+                "api_keys",
+                "existing_api_keys",
+            ]:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.success("Logged out")
