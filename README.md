@@ -48,9 +48,11 @@ A local knowledge management solution built with **FastAPI** and **Streamlit** t
 pip install -r requirements.txt
 ```
 
-> Create a `.env` file with your OpenAI key:
+> Create a `.env` file with your OpenAI key and allowed API keys:
 ```
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxx
+# Comma-separated list of keys permitted to access the API
+API_KEYS=your-api-key-1,your-api-key-2
 ```
 
 ---
@@ -74,6 +76,19 @@ python run_app.py
 Then open:
 - FastAPI backend: http://127.0.0.1:8000/docs
 - Streamlit UI: http://localhost:8501
+
+---
+
+### 🔐 API Authentication
+
+All FastAPI routes are protected with an API key. Generate a key (for example,
+`python -c "import secrets; print(secrets.token_hex(16))"`), add it to
+`API_KEYS` in your `.env` file, and include it with requests using the
+`X-API-Key` header:
+
+```bash
+curl -H "X-API-Key: <your-api-key>" http://127.0.0.1:8000/list-indexes/
+```
 
 ---
 
