@@ -90,9 +90,6 @@ All FastAPI routes are protected with an API key. Generate a key (for example,
 curl -H "X-API-Key: <your-api-key>" http://127.0.0.1:8000/list-indexes/
 ```
 
-When using the Streamlit UI, enter the same API key in the sidebar so it can be
-sent with all backend requests.
-
 ---
 
 ## 🧪 API Endpoints
