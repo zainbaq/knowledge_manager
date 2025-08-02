@@ -17,6 +17,29 @@ if page == "Upload Files":
     user_index_name = st.text_input("Index name", placeholder="e.g. project_alpha")
     uploaded_files = st.file_uploader("Drag and drop files here", accept_multiple_files=True)
 
+    if uploaded_files:
+        st.markdown("#### Preview Selected Files")
+        for uf in uploaded_files:
+            size_kb = len(uf.getvalue()) / 1024
+            with st.expander(f"{uf.name} ({size_kb:.1f} KB)"):
+                try:
+                    import tempfile, os
+                    from pathlib import Path
+                    from ingestion.file_loader import extract_text_from_file
+
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=uf.name) as tmp:
+                        tmp.write(uf.getvalue())
+                        tmp_path = Path(tmp.name)
+                    text = extract_text_from_file(tmp_path)
+                    os.remove(tmp_path)
+                    preview = text[:500]
+                    if preview:
+                        st.text_area("Preview", preview, height=200)
+                    else:
+                        st.write("No preview available.")
+                except Exception as e:
+                    st.write(f"Preview error: {e}")
+
     if st.button("Submit Files") and user_index_name and uploaded_files:
         collection = user_index_name.strip()
         with st.spinner("Uploading and processing..."):
@@ -50,7 +73,14 @@ elif page == "Query Index":
             if res.status_code == 200:
                 context = res.json()["context"]
                 st.markdown("#### Retrieved Context")
-                st.text(context)
+                for item in context:
+                    meta = item.get("metadata", {})
+                    source = meta.get("source", "unknown")
+                    dist = item.get("distance", 0.0)
+                    label = f"{source} (distance {dist:.2f})"
+                    with st.expander(label):
+                        st.write(item.get("text", ""))
+                        st.json(meta)
             else:
                 st.error(f"Query failed: {res.json().get('error')}")
 

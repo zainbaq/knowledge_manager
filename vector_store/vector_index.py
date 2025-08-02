@@ -67,9 +67,32 @@ def query_multiple_indexes(collection_names: list[str], query_text: str, n_resul
     }
 
 def compile_context(query_results):
-    """Flatten query results into a list of unique context documents."""
-    documents = [r for r in query_results['documents'][0] if r is not None]
-    return list(set(documents))
+    """Return ordered unique context entries with metadata."""
+
+    docs = query_results.get("documents", [[]])[0]
+    ids = query_results.get("ids", [[]])[0]
+    metas = query_results.get("metadatas", [[]])[0]
+    dists = query_results.get("distances", [[]])[0]
+
+    combined = list(zip(dists, ids, docs, metas))
+    combined.sort(key=lambda x: x[0])
+
+    context = []
+    seen = set()
+    for dist, doc_id, doc, meta in combined:
+        if doc is None or doc in seen:
+            continue
+        seen.add(doc)
+        context.append(
+            {
+                "id": doc_id,
+                "text": doc,
+                "metadata": meta,
+                "distance": dist,
+            }
+        )
+
+    return context
 
 def list_collections_with_metadata():
     """Return available collections along with basic metadata."""
