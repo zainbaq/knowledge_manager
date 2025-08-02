@@ -17,7 +17,6 @@ from vector_store.vector_index import (
     delete_collection,
     list_collection_names,
 )
-# from fastapi import Path
 import uuid
 import os
 import tempfile
@@ -25,9 +24,13 @@ import asyncio
 from typing import Iterable, List
 from pathlib import Path
 from config import CORS_ORIGINS
-from .auth import verify_api_key
+from .auth import get_current_user
+from .users import router as users_router
 
 app = FastAPI()
+
+# Mount user management routes
+app.include_router(users_router, prefix="/user")
 
 # Configure CORS. `CORS_ORIGINS` is already a list, so pass it directly
 app.add_middleware(
@@ -69,7 +72,12 @@ async def _process_single_file(file: UploadFile, chunker) -> tuple[List[str], Li
     return chunks, embeddings, metas, ids
 
 
-async def process_files(files: Iterable[UploadFile], collection: str, chunker=token_text_chunker) -> int:
+async def process_files(
+    files: Iterable[UploadFile],
+    collection: str,
+    db_path: str,
+    chunker=token_text_chunker,
+) -> int:
     """Process and index multiple uploaded files asynchronously."""
 
     tasks = [asyncio.create_task(_process_single_file(file, chunker)) for file in files]
@@ -94,61 +102,82 @@ async def process_files(files: Iterable[UploadFile], collection: str, chunker=to
             all_embeddings,
             all_metas,
             all_ids,
+            db_path,
         )
         return len(all_chunks)
     return 0
 
-@app.post("/create-index/", dependencies=[Depends(verify_api_key)])
-async def create_index(collection: str = Form(...), files: list[UploadFile] = File(...)):
+@app.post("/create-index/")
+async def create_index(
+    collection: str = Form(...),
+    files: list[UploadFile] = File(...),
+    current_user: dict = Depends(get_current_user),
+):
     """Create a new collection and ingest the given files."""
     try:
-        count = await process_files(files, collection)
+        count = await process_files(files, collection, current_user["db_path"])
         if count == 0:
             return JSONResponse(content={"error": "No valid files"}, status_code=400)
-        return {"message": f"Created index and ingested {count} chunks into '{collection}'"}
+        return {
+            "message": f"Created index and ingested {count} chunks into '{collection}'"
+        }
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-@app.post("/update-index/", dependencies=[Depends(verify_api_key)])
-async def update_index(collection: str = Form(...), files: list[UploadFile] = File(...)):
+
+@app.post("/update-index/")
+async def update_index(
+    collection: str = Form(...),
+    files: list[UploadFile] = File(...),
+    current_user: dict = Depends(get_current_user),
+):
     """Append new files to an existing collection."""
     try:
-        count = await process_files(files, collection)
+        count = await process_files(files, collection, current_user["db_path"])
         if count == 0:
             return JSONResponse(content={"error": "No valid files"}, status_code=400)
         return {"message": f"Updated '{collection}' with {count} new chunks"}
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-@app.post("/query/", dependencies=[Depends(verify_api_key)])
-async def query(request: QueryRequest):
+
+@app.post("/query/")
+async def query(request: QueryRequest, current_user: dict = Depends(get_current_user)):
     """Return context for a query across one or many collections."""
     try:
         if request.collection:
-            results = query_index(request.collection, request.query)
+            results = query_index(
+                request.collection, request.query, current_user["db_path"]
+            )
         else:
             if request.collections:
                 collections = request.collections
             else:
-                collections = list_collection_names()
-            results = query_multiple_indexes(collections, request.query)
+                collections = list_collection_names(current_user["db_path"])
+            results = query_multiple_indexes(
+                collections, request.query, current_user["db_path"]
+            )
         context = compile_context(results)
         return {"context": context, "raw_results": results}
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-@app.get("/list-indexes/", dependencies=[Depends(verify_api_key)])
-async def list_indexes():
+
+@app.get("/list-indexes/")
+async def list_indexes(current_user: dict = Depends(get_current_user)):
     """List all available collections with basic metadata."""
     try:
-        return list_collections_with_metadata()
+        return list_collections_with_metadata(current_user["db_path"])
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-@app.delete("/delete-index/{collection_name}", dependencies=[Depends(verify_api_key)])
-async def delete_index(collection_name: str):
+
+@app.delete("/delete-index/{collection_name}")
+async def delete_index(
+    collection_name: str, current_user: dict = Depends(get_current_user)
+):
     """Delete an entire collection from the vector store."""
-    result = delete_collection(collection_name)
+    result = delete_collection(collection_name, current_user["db_path"])
     if "error" in result:
         return JSONResponse(content=result, status_code=500)
     return result

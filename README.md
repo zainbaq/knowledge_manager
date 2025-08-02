@@ -14,6 +14,7 @@ A local knowledge management solution built with **FastAPI** and **Streamlit** t
 - ✅ View all collections and their metadata
 - ✅ Delete collections safely from the UI
 - ✅ Full Python backend & frontend integration
+- ✅ User accounts with per-user vector stores and API keys
 
 ---
 
@@ -48,11 +49,9 @@ A local knowledge management solution built with **FastAPI** and **Streamlit** t
 pip install -r requirements.txt
 ```
 
-> Create a `.env` file with your OpenAI key and allowed API keys:
+> Create a `.env` file with your OpenAI key:
 ```
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxx
-# Comma-separated list of keys permitted to access the API
-API_KEYS=your-api-key-1,your-api-key-2
 ```
 
 ---
@@ -79,16 +78,31 @@ Then open:
 
 ---
 
-### 🔐 API Authentication
+### 🔐 User Accounts & API Keys
 
-All FastAPI routes are protected with an API key. Generate a key (for example,
-`python -c "import secrets; print(secrets.token_hex(16))"`), add it to
-`API_KEYS` in your `.env` file, and include it with requests using the
-`X-API-Key` header:
+Each user has a private vector database and can generate their own API keys.
 
-```bash
-curl -H "X-API-Key: <your-api-key>" http://127.0.0.1:8000/list-indexes/
-```
+1. **Register a user**
+
+   ```bash
+   curl -X POST -H "Content-Type: application/json" \
+     -d '{"username": "alice", "password": "secret"}' \
+     http://127.0.0.1:8000/user/register
+   ```
+
+2. **Create an API key** (after registering)
+
+   ```bash
+   curl -X POST -H "Content-Type: application/json" \
+     -d '{"username": "alice", "password": "secret"}' \
+     http://127.0.0.1:8000/user/create-api-key
+   ```
+
+3. **Use the API key**
+
+   ```bash
+   curl -H "X-API-Key: <your-api-key>" http://127.0.0.1:8000/list-indexes/
+   ```
 
 ---
 
@@ -109,7 +123,7 @@ curl -H "X-API-Key: <your-api-key>" http://127.0.0.1:8000/list-indexes/
 - [ ] Full file preview in UI
 - [x] Multi-index search
 - [ ] Support for local embedding models (offline mode)
-- [ ] User authentication
+- [x] User authentication
 - [ ] Export/Import indexes
 
 ---
