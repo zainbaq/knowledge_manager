@@ -19,7 +19,6 @@ if "password" not in st.session_state:
 api_key_input = st.sidebar.text_input(
     "API Key",
     type="password",
-    key="api_key_input",
     value=st.session_state.get("api_key", ""),
 )
 if api_key_input != st.session_state.api_key:
@@ -265,8 +264,8 @@ elif page == "Account":
         )
         if st.button("Use Selected Key") and selected_key:
             st.session_state.api_key = selected_key
-            st.session_state.api_key_input = selected_key
             st.success("API key set for session")
+            st.experimental_rerun()
 
     if st.session_state.username and st.session_state.password:
         if st.button("Create New API Key"):
@@ -281,15 +280,14 @@ elif page == "Account":
                 new_key = res.json().get("api_key")
                 st.session_state.api_keys.append(new_key)
                 st.session_state.api_key = new_key
-                st.session_state.api_key_input = new_key
                 st.success(f"New API key generated: {new_key}")
+                st.experimental_rerun()
             else:
                 st.error(res.json().get("detail", "Failed to generate key"))
 
         if st.button("Logout"):
             for key in [
                 "api_key",
-                "api_key_input",
                 "username",
                 "password",
                 "api_keys",
@@ -298,3 +296,4 @@ elif page == "Account":
                 if key in st.session_state:
                     del st.session_state[key]
             st.success("Logged out")
+            st.experimental_rerun()
