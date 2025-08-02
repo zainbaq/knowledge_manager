@@ -25,6 +25,8 @@ if page == "Upload Files":
                 try:
                     import tempfile, os
                     from pathlib import Path
+                    import sys
+                    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
                     from ingestion.file_loader import extract_text_from_file
 
                     with tempfile.NamedTemporaryFile(delete=False, suffix=uf.name) as tmp:
