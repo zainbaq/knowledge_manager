@@ -10,7 +10,7 @@ A local knowledge management solution built with **FastAPI** and **Streamlit** t
 - ✅ Automatically chunk and embed content
 - ✅ Store embeddings locally using ChromaDB
 - ✅ Create and update custom indexes (collections)
-- ✅ Query indexed knowledge and retrieve context
+- ✅ Query indexed knowledge across single or multiple indexes
 - ✅ View all collections and their metadata
 - ✅ Delete collections safely from the UI
 - ✅ Full Python backend & frontend integration
@@ -98,8 +98,7 @@ curl -H "X-API-Key: <your-api-key>" http://127.0.0.1:8000/list-indexes/
 |--------|---------------------------|----------------------------------|
 | POST   | `/create-index/`          | Upload files and create index   |
 | POST   | `/update-index/`          | Add files to existing index     |
-| POST   | `/query/`                 | Ask questions about an index    |
-| POST   | `/multi-query/`           | Search across multiple indexes |
+| POST   | `/query/`                 | Search one, many, or all indexes |
 | GET    | `/list-indexes/`          | View collections and metadata   |
 | DELETE | `/delete-index/{name}`    | Delete a collection             |
 
