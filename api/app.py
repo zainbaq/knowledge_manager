@@ -1,6 +1,6 @@
 """FastAPI routes for managing document indexes and querying them."""
 
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, File, UploadFile, Form, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -24,10 +24,9 @@ import asyncio
 from typing import Iterable, List
 from pathlib import Path
 from config import CORS_ORIGINS
+from .auth import verify_api_key
 
 app = FastAPI()
-
-from fastapi.middleware.cors import CORSMiddleware
 
 # Configure CORS. `CORS_ORIGINS` is already a list, so pass it directly
 app.add_middleware(
@@ -102,7 +101,7 @@ async def process_files(files: Iterable[UploadFile], collection: str, chunker=to
         return len(all_chunks)
     return 0
 
-@app.post("/create-index/")
+@app.post("/create-index/", dependencies=[Depends(verify_api_key)])
 async def create_index(collection: str = Form(...), files: list[UploadFile] = File(...)):
     """Create a new collection and ingest the given files."""
     try:
@@ -113,7 +112,7 @@ async def create_index(collection: str = Form(...), files: list[UploadFile] = Fi
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-@app.post("/update-index/")
+@app.post("/update-index/", dependencies=[Depends(verify_api_key)])
 async def update_index(collection: str = Form(...), files: list[UploadFile] = File(...)):
     """Append new files to an existing collection."""
     try:
@@ -124,7 +123,7 @@ async def update_index(collection: str = Form(...), files: list[UploadFile] = Fi
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-@app.post("/query/")
+@app.post("/query/", dependencies=[Depends(verify_api_key)])
 async def query(request: QueryRequest):
     """Return relevant context for ``request.query`` from the index."""
     try:
@@ -135,7 +134,7 @@ async def query(request: QueryRequest):
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
-@app.post("/multi-query/")
+@app.post("/multi-query/", dependencies=[Depends(verify_api_key)])
 async def multi_query(request: MultiQueryRequest):
     """Return context from multiple indexes for ``request.query``."""
     try:
@@ -145,7 +144,7 @@ async def multi_query(request: MultiQueryRequest):
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-@app.get("/list-indexes/")
+@app.get("/list-indexes/", dependencies=[Depends(verify_api_key)])
 async def list_indexes():
     """List all available collections with basic metadata."""
     try:
@@ -153,7 +152,7 @@ async def list_indexes():
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-@app.delete("/delete-index/{collection_name}")
+@app.delete("/delete-index/{collection_name}", dependencies=[Depends(verify_api_key)])
 async def delete_index(collection_name: str):
     """Delete an entire collection from the vector store."""
     result = delete_collection(collection_name)
