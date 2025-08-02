@@ -17,6 +17,10 @@ def add_documents_to_index(collection_name, documents, embeddings, metadatas, id
     collection = get_or_create_collection(collection_name)
     collection.add(documents=documents, embeddings=embeddings, metadatas=metadatas, ids=ids)
 
+def list_collection_names() -> list[str]:
+    """Return a list of all collection names in the vector store."""
+    return [col.name for col in client.list_collections()]
+
 def query_index(collection_name, query_text, n_results=5):
     """Query ``collection_name`` using the embedding of ``query_text``."""
     from vector_store.embedder import get_openai_embedding

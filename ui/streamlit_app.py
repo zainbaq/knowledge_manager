@@ -84,17 +84,25 @@ elif page == "Query Index":
     else:
         st.info("Enter API key to load indexes.")
 
-    selected_indexes = st.multiselect("Select indexes", options=index_options)
+    selected_indexes = st.multiselect(
+        "Select indexes (leave empty to search all)", options=index_options
+    )
     query = st.text_input("Ask a question")
 
-    if st.button("Submit Query") and query and selected_indexes:
+    if st.button("Submit Query") and query:
         if not api_key:
             st.error("API key required.")
         else:
+            payload = {"query": query}
+            if selected_indexes:
+                if len(selected_indexes) == 1:
+                    payload["collection"] = selected_indexes[0]
+                else:
+                    payload["collections"] = selected_indexes
             with st.spinner("Thinking..."):
                 res = requests.post(
-                    f"{API_URL}/multi-query/",
-                    json={"query": query, "collections": selected_indexes},
+                    f"{API_URL}/query/",
+                    json=payload,
                     headers=headers,
                 )
 
