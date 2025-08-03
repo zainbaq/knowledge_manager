@@ -1,11 +1,9 @@
-
 import asyncio
 import json
 import uuid
 from typing import List, Optional
 
-from mcp.server import Server
-from mcp.server.fastapi import FastAPIAdapter
+from mcp.server.fastmcp import FastMCP
 from mcp.types import TextContent, ToolOutput
 
 from ingestion.chunker import token_text_chunker
@@ -21,7 +19,8 @@ from vector_store.vector_index import (
 from vector_store.embedder import get_openai_embedding
 
 
-server = Server("knowledge_manager")
+# Initialize FastMCP server
+mcp = FastMCP("knowledge_manager")
 
 
 async def _ingest_texts(collection: str, texts: List[str]) -> int:
@@ -52,60 +51,29 @@ async def _ingest_texts(collection: str, texts: List[str]) -> int:
     return len(chunks)
 
 
-@server.tool(
-    name="create_index",
-    description="Create a new collection and ingest provided texts",
-    input_schema={
-        "type": "object",
-        "properties": {
-            "collection": {"type": "string"},
-            "texts": {"type": "array", "items": {"type": "string"}},
-        },
-        "required": ["collection", "texts"],
-    },
-)
-async def create_index_tool(collection: str, texts: List[str]) -> ToolOutput:
+@mcp.tool()
+async def create_index(collection: str, texts: List[str]) -> str:
+    """Create a new collection and ingest provided texts"""
     count = await _ingest_texts(collection, texts)
     message = f"Created index and ingested {count} chunks into '{collection}'"
-    return ToolOutput(content=[TextContent(text=message)])
+    return message
 
 
-@server.tool(
-    name="update_index",
-    description="Append texts to an existing collection",
-    input_schema={
-        "type": "object",
-        "properties": {
-            "collection": {"type": "string"},
-            "texts": {"type": "array", "items": {"type": "string"}},
-        },
-        "required": ["collection", "texts"],
-    },
-)
-async def update_index_tool(collection: str, texts: List[str]) -> ToolOutput:
+@mcp.tool()
+async def update_index(collection: str, texts: List[str]) -> str:
+    """Append texts to an existing collection"""
     count = await _ingest_texts(collection, texts)
     message = f"Updated '{collection}' with {count} new chunks"
-    return ToolOutput(content=[TextContent(text=message)])
+    return message
 
 
-@server.tool(
-    name="query",
-    description="Query one or more collections and return context",
-    input_schema={
-        "type": "object",
-        "properties": {
-            "query": {"type": "string"},
-            "collection": {"type": "string"},
-            "collections": {"type": "array", "items": {"type": "string"}},
-        },
-        "required": ["query"],
-    },
-)
-async def query_tool(
+@mcp.tool()
+async def query(
     query: str,
     collection: Optional[str] = None,
     collections: Optional[List[str]] = None,
-) -> ToolOutput:
+) -> str:
+    """Query one or more collections and return context"""
     if collection:
         results = await asyncio.to_thread(query_index, collection, query)
     else:
@@ -114,35 +82,26 @@ async def query_tool(
         else:
             target = list_collection_names()
         results = await asyncio.to_thread(query_multiple_indexes, target, query)
+    
     context = compile_context(results)
     payload = {"context": context, "raw_results": results}
-    return ToolOutput(content=[TextContent(text=json.dumps(payload))])
+    return json.dumps(payload)
 
 
-@server.tool(
-    name="list_indexes",
-    description="List available collections with metadata",
-)
-async def list_indexes_tool() -> ToolOutput:
+@mcp.tool()
+async def list_indexes() -> str:
+    """List available collections with metadata"""
     data = await asyncio.to_thread(list_collections_with_metadata)
-    return ToolOutput(content=[TextContent(text=json.dumps(data))])
+    return json.dumps(data)
 
 
-@server.tool(
-    name="delete_index",
-    description="Delete a collection from the vector store",
-    input_schema={
-        "type": "object",
-        "properties": {"collection_name": {"type": "string"}},
-        "required": ["collection_name"],
-    },
-)
-async def delete_index_tool(collection_name: str) -> ToolOutput:
+@mcp.tool()
+async def delete_index(collection_name: str) -> str:
+    """Delete a collection from the vector store"""
     result = await asyncio.to_thread(delete_collection, collection_name)
-    return ToolOutput(content=[TextContent(text=json.dumps(result))])
+    return json.dumps(result)
 
 
 if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(FastAPIAdapter(server), host="0.0.0.0", port=8765)
+    # Run the server with stdio transport (default)
+    mcp.run()
