@@ -23,7 +23,7 @@ import tempfile
 import asyncio
 from typing import Iterable, List
 from pathlib import Path
-from config import CORS_ORIGINS
+from config import CORS_ORIGINS, ALLOWED_FILE_EXTENSIONS, MAX_FILE_SIZE_MB
 from .auth import get_current_user
 from .users import router as users_router
 
@@ -44,6 +44,20 @@ class QueryRequest(BaseModel):
     query: str
     collection: str | None = None
     collections: list[str] | None = None
+
+
+def validate_upload_files(files: Iterable[UploadFile]) -> str | None:
+    """Return an error message if any file is invalid."""
+    for file in files:
+        ext = Path(file.filename).suffix.lower()
+        if ext not in ALLOWED_FILE_EXTENSIONS:
+            return f"Unsupported file type: {file.filename}"
+        file.file.seek(0, os.SEEK_END)
+        size_mb = file.file.tell() / (1024 * 1024)
+        file.file.seek(0)
+        if size_mb > MAX_FILE_SIZE_MB:
+            return f"File too large: {file.filename}"
+    return None
 
 async def _process_single_file(file: UploadFile, chunker) -> tuple[List[str], List, List[dict], List[str]]:
     """Extract text, chunk it and generate embeddings for one file."""
@@ -113,6 +127,9 @@ async def create_index(
     current_user: dict = Depends(get_current_user),
 ):
     """Create a new collection and ingest the given files."""
+    error = validate_upload_files(files)
+    if error:
+        return JSONResponse(content={"error": error}, status_code=400)
     try:
         count = await process_files(files, collection, current_user["db_path"])
         if count == 0:
@@ -131,6 +148,9 @@ async def update_index(
     current_user: dict = Depends(get_current_user),
 ):
     """Append new files to an existing collection."""
+    error = validate_upload_files(files)
+    if error:
+        return JSONResponse(content={"error": error}, status_code=400)
     try:
         count = await process_files(files, collection, current_user["db_path"])
         if count == 0:
