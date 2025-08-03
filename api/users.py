@@ -53,7 +53,6 @@ init_db()
 
 router = APIRouter()
 
-
 class UserCredentials(BaseModel):
     username: str
     password: str
