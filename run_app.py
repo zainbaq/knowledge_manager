@@ -3,6 +3,7 @@
 import subprocess
 import os
 import sys
+import config
 
 # Set paths to backend and frontend scripts
 BACKEND_SCRIPT = os.path.join("api_main.py")              # adjust if your FastAPI app is named differently
@@ -15,7 +16,7 @@ try:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT
     )
-    print("✅ FastAPI backend started on http://127.0.0.1:8000")
+    print(f"✅ FastAPI backend started on http://127.0.0.1:{config.PORT}")
 
     # Start Streamlit frontend
     frontend = subprocess.Popen(
@@ -23,7 +24,7 @@ try:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT
     )
-    print("✅ Streamlit frontend started on http://127.0.0.1:8501")
+    print(f"✅ Streamlit frontend started on http://127.0.0.1:{config.FRONTEND_PORT}")
 
     # Wait for both processes
     backend.wait()
@@ -33,7 +34,7 @@ except KeyboardInterrupt:
     print("\nShutting down...")
 
     backend.terminate()
-    frontend.terminate()
+    # frontend.terminate()
 
     backend.wait()
-    frontend.wait()
+    # frontend.wait()

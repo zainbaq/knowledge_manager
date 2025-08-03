@@ -29,3 +29,4 @@ DEBUG = os.getenv("DEBUG", "true").lower() == "true"
 
 # === Heroku/Production Settings ===
 PORT = int(os.getenv("PORT", 8000))  # Heroku provides PORT env var
+FRONTEND_PORT = int(os.getenv("FRONTEND_PORT", 8501))

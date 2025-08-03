@@ -71,7 +71,6 @@ async def _process_single_file(file: UploadFile, chunker) -> tuple[List[str], Li
 
     return chunks, embeddings, metas, ids
 
-
 async def process_files(
     files: Iterable[UploadFile],
     collection: str,
