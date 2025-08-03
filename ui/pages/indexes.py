@@ -3,8 +3,7 @@ import streamlit as st
 from utils.api_client import api_request
 from utils.auth import get_api_key, get_headers
 
-
-st.markdown("### \ud83d\udcbd Existing Indexes with Metadata")
+st.markdown("### 💽 Existing Indexes with Metadata")
 
 api_key = get_api_key()
 if api_key:
@@ -17,7 +16,7 @@ if api_key:
                 for idx in indexes:
                     index_name = idx["collection_name"]
 
-                    with st.expander(f"\ud83d\udcc2 {index_name} ({idx['num_chunks']} chunks)"):
+                    with st.expander(f"📂 {index_name} ({idx['num_chunks']} chunks)"):
                         st.markdown("**Files Indexed:**")
                         for f in idx["files"]:
                             st.markdown(f"- `{f}`")
@@ -44,17 +43,17 @@ if api_key:
                                     st.error(f"Update failed: {update_res.json().get('error')}")
 
                         delete_key = f"delete_{index_name}"
-                        if st.button(f"\u274c Delete '{index_name}'", key=delete_key):
+                        if st.button(f"❌ Delete '{index_name}'", key=delete_key):
                             st.session_state["pending_delete"] = index_name
 
                         if st.session_state.get("pending_delete") == index_name:
-                            st.warning(f"Are you sure you want to delete '{index_name}'?", icon="\u26a0\ufe0f")
+                            st.warning(f"Are you sure you want to delete '{index_name}'?", icon="⚠️")
                             confirm_key = f"confirm_delete_{index_name}"
                             cancel_key = f"cancel_delete_{index_name}"
 
                             col1, col2 = st.columns([1, 1])
                             with col1:
-                                if st.button("\u2705 Yes, Delete", key=confirm_key):
+                                if st.button("✅ Yes, Delete", key=confirm_key):
                                     del_res = api_request(
                                         "delete",
                                         f"/delete-index/{index_name}",
@@ -67,7 +66,7 @@ if api_key:
                                         st.error(f"Delete failed: {del_res.json().get('error')}")
 
                             with col2:
-                                if st.button("\u274c Cancel", key=cancel_key):
+                                if st.button("❌ Cancel", key=cancel_key):
                                     del st.session_state["pending_delete"]
             else:
                 st.info("No indexes found.")

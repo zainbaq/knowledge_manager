@@ -4,7 +4,7 @@ from utils.api_client import api_request
 from utils.auth import logout
 
 
-st.markdown("### \ud83d\udd10 Account Management")
+st.markdown("### 🔐 Account Management")
 
 st.subheader("Register")
 with st.form("register_form"):

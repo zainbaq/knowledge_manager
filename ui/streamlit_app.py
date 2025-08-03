@@ -10,7 +10,7 @@ PORT = os.getenv("PORT", "8000")
 
 def main() -> None:
     st.set_page_config(page_title="Knowledge Indexer", layout="centered")
-    st.title("\ud83d\udcda Knowledge Indexer")
+    st.title("📚 Knowledge Indexer")
 
     init_session_state()
 
@@ -21,10 +21,10 @@ def main() -> None:
         set_api_key(api_key_input)
 
     pages = [
-        st.Page("pages/upload.py", title="Upload Files", icon="\ud83d\udce4"),
-        st.Page("pages/query.py", title="Query Index", icon="\ud83d\udd0d"),
-        st.Page("pages/indexes.py", title="View Indexes", icon="\ud83d\udcc1"),
-        st.Page("pages/account.py", title="Account", icon="\ud83d\udd10"),
+        st.Page("pages/upload.py", title="Upload Files", icon="📤"),
+        st.Page("pages/query.py", title="Query Index", icon="🔍"),
+        st.Page("pages/indexes.py", title="View Indexes", icon="📁"),
+        st.Page("pages/account.py", title="Account", icon="🔐"),
     ]
     pg = st.navigation(pages)
     pg.run()
