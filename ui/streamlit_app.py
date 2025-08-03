@@ -8,7 +8,7 @@ import os
 # frontend and backend can run on the same host. Configure the API_URL
 # environment variable if the backend is hosted elsewhere.
 PORT = os.getenv("PORT", "8000")
-API_URL = os.getenv("API_URL", f"http://127.0.0.1:{PORT}").rstrip("/")
+API_URL = os.getenv("API_URL", "https://knowledge-manager-236c8288fac7.herokuapp.com/").rstrip("/")
 
 # Session state defaults
 if "api_key" not in st.session_state:
