@@ -10,3 +10,4 @@ streamlit
 requests
 honcho
 passlib[bcrypt]
+mcp
