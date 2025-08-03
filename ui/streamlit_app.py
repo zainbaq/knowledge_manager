@@ -1,14 +1,13 @@
 """Streamlit frontend for interacting with the knowledge indexer."""
 
 import streamlit as st
-import requests
 import os
 
-# Base URL for the backend API. Defaults to a relative path so that the
-# frontend and backend can run on the same host. Configure the API_URL
-# environment variable if the backend is hosted elsewhere.
+from api_client import api_request
+
+# Base URL for the backend API is configured via the ``API_URL`` environment
+# variable and handled by ``api_client``.
 PORT = os.getenv("PORT", "8000")
-API_URL = os.getenv("API_URL", "https://knowledge-manager-236c8288fac7.herokuapp.com/").rstrip("/")
 
 # Session state defaults
 if "api_key" not in st.session_state:
@@ -83,8 +82,9 @@ if page == "Upload Files":
             collection = user_index_name.strip()
             with st.spinner("Uploading and processing..."):
                 files = [("files", (f.name, f.getvalue())) for f in uploaded_files]
-                res = requests.post(
-                    f"{API_URL}/create-index/",
+                res = api_request(
+                    "post",
+                    "/create-index/",
                     files=files,
                     data={"collection": collection},
                     headers=headers,
@@ -101,7 +101,7 @@ elif page == "Query Index":
     index_options: list[str] = []
     if api_key:
         try:
-            res = requests.get(f"{API_URL}/list-indexes/", headers=headers)
+            res = api_request("get", "/list-indexes/", headers=headers)
             if res.status_code == 200:
                 index_options = [idx["collection_name"] for idx in res.json()]
         except Exception:
@@ -125,8 +125,9 @@ elif page == "Query Index":
                 else:
                     payload["collections"] = selected_indexes
             with st.spinner("Thinking..."):
-                res = requests.post(
-                    f"{API_URL}/query/",
+                res = api_request(
+                    "post",
+                    "/query/",
                     json=payload,
                     headers=headers,
                 )
@@ -151,7 +152,7 @@ elif page == "View Indexes":
 
     if api_key:
         try:
-            res = requests.get(f"{API_URL}/list-indexes/", headers=headers)
+            res = api_request("get", "/list-indexes/", headers=headers)
             if res.status_code == 200:
                 indexes = res.json()
 
@@ -173,8 +174,9 @@ elif page == "View Indexes":
                             if st.button(f"Update '{index_name}'", key=f"btn_{index_name}") and update_files:
                                 with st.spinner("Updating..."):
                                     files = [("files", (f.name, f.getvalue())) for f in update_files]
-                                    update_res = requests.post(
-                                        f"{API_URL}/update-index/",
+                                    update_res = api_request(
+                                        "post",
+                                        "/update-index/",
                                         files=files,
                                         data={"collection": index_name},
                                         headers=headers,
@@ -196,8 +198,9 @@ elif page == "View Indexes":
                                 col1, col2 = st.columns([1, 1])
                                 with col1:
                                     if st.button("✅ Yes, Delete", key=confirm_key):
-                                        del_res = requests.delete(
-                                            f"{API_URL}/delete-index/{index_name}",
+                                        del_res = api_request(
+                                            "delete",
+                                            f"/delete-index/{index_name}",
                                             headers=headers,
                                         )
                                         if del_res.status_code == 200:
@@ -230,8 +233,9 @@ elif page == "Account":
         )
         submitted = st.form_submit_button("Create Account")
     if submitted and reg_user and reg_pass:
-        res = requests.post(
-            f"{API_URL}/user/register",
+        res = api_request(
+            "post",
+            "/user/register",
             json={"username": reg_user, "password": reg_pass},
         )
         if res.status_code == 200:
@@ -248,8 +252,9 @@ elif page == "Account":
         )
         login_submitted = st.form_submit_button("Login")
     if login_submitted and login_user and login_pass:
-        res = requests.post(
-            f"{API_URL}/user/login",
+        res = api_request(
+            "post",
+            "/user/login",
             json={"username": login_user, "password": login_pass},
         )
         if res.status_code == 200:
@@ -273,8 +278,9 @@ elif page == "Account":
 
     if st.session_state.username and st.session_state.password:
         if st.button("Create New API Key"):
-            res = requests.post(
-                f"{API_URL}/user/create-api-key",
+            res = api_request(
+                "post",
+                "/user/create-api-key",
                 json={
                     "username": st.session_state.username,
                     "password": st.session_state.password,
