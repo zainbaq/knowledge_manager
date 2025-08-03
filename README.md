@@ -118,6 +118,15 @@ Each user has a private vector database and can generate their own API keys.
 
 ---
 
+### 📄 File Upload Limits
+
+The `/create-index/` and `/update-index/` endpoints only accept files up to
+`MAX_FILE_SIZE_MB` (25 MB by default) and with extensions in
+`ALLOWED_FILE_EXTENSIONS` (`.pdf`, `.docx`, `.txt`, `.md`). Files that exceed
+these limits will result in a `400 Bad Request` response.
+
+---
+
 ## 📌 Roadmap Ideas
 
 - [ ] Full file preview in UI
