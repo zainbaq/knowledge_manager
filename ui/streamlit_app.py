@@ -24,6 +24,7 @@ def main() -> None:
         st.Page("pages/upload.py", title="Upload Files", icon="📤"),
         st.Page("pages/query.py", title="Query Index", icon="🔍"),
         st.Page("pages/indexes.py", title="View Indexes", icon="📁"),
+        st.Page("pages/documentation.py", title="Documentation", icon="📖"),
         st.Page("pages/account.py", title="Account", icon="🔐"),
     ]
     pg = st.navigation(pages)
