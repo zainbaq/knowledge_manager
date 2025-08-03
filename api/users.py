@@ -5,6 +5,7 @@ import hashlib
 import secrets
 from pathlib import Path
 
+from passlib.context import CryptContext
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -12,6 +13,8 @@ from config import BASE_DIR, VECTOR_DB_PATH
 
 # Database location for user accounts and API keys
 DB_PATH = Path(BASE_DIR) / "users.db"
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def _get_conn():
@@ -35,7 +38,7 @@ def init_db():
         """
         CREATE TABLE IF NOT EXISTS api_keys (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            key TEXT UNIQUE NOT NULL,
+            key_hash TEXT UNIQUE NOT NULL,
             user_id INTEGER NOT NULL,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
@@ -57,11 +60,15 @@ class UserCredentials(BaseModel):
 
 
 def _hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+    return pwd_context.hash(password)
 
 
 def _verify_password(password: str, password_hash: str) -> bool:
-    return _hash_password(password) == password_hash
+    return pwd_context.verify(password, password_hash)
+
+
+def _hash_api_key(api_key: str) -> str:
+    return hashlib.sha256(api_key.encode()).hexdigest()
 
 
 @router.post("/register")
@@ -88,7 +95,7 @@ def register(user: UserCredentials):
 
 @router.post("/login")
 def login(user: UserCredentials):
-    """Validate user credentials and return existing API keys."""
+    """Validate user credentials and return a new API key."""
     conn = _get_conn()
     cur = conn.execute(
         "SELECT id, password_hash FROM users WHERE username=?", (user.username,)
@@ -98,10 +105,14 @@ def login(user: UserCredentials):
         conn.close()
         raise HTTPException(status_code=401, detail="Invalid credentials")
     user_id = row[0]
-    cur = conn.execute("SELECT key FROM api_keys WHERE user_id=?", (user_id,))
-    keys = [r[0] for r in cur.fetchall()]
+    api_key = secrets.token_hex(16)
+    conn.execute(
+        "INSERT INTO api_keys (key_hash, user_id) VALUES (?, ?)",
+        (_hash_api_key(api_key), user_id),
+    )
+    conn.commit()
     conn.close()
-    return {"message": "Login successful", "api_keys": keys}
+    return {"api_key": api_key}
 
 
 @router.post("/create-api-key")
@@ -118,7 +129,8 @@ def create_api_key(user: UserCredentials):
     user_id = row[0]
     api_key = secrets.token_hex(16)
     conn.execute(
-        "INSERT INTO api_keys (key, user_id) VALUES (?, ?)", (api_key, user_id)
+        "INSERT INTO api_keys (key_hash, user_id) VALUES (?, ?)",
+        (_hash_api_key(api_key), user_id),
     )
     conn.commit()
     conn.close()
@@ -133,9 +145,9 @@ def get_user_by_api_key(api_key: str) -> dict | None:
         SELECT users.id, users.username
         FROM api_keys
         JOIN users ON api_keys.user_id = users.id
-        WHERE api_keys.key = ?
+        WHERE api_keys.key_hash = ?
         """,
-        (api_key,),
+        (_hash_api_key(api_key),),
     )
     row = cur.fetchone()
     conn.close()
