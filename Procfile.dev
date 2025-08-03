@@ -1,2 +1,2 @@
-backend: uvicorn api_main:app --host=0.0.0.0 --port=$PORT
+backend: uvicorn api:app --host=0.0.0.0 --port=$PORT
 frontend: streamlit run ui/streamlit_app.py --server.port=$FRONTEND_PORT --server.enableCORS false
