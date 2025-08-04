@@ -128,7 +128,7 @@ async def status():
         result = {
             'status' : 'ok'
         }
-        return JSONResponse(content=result, status=200)
+        return JSONResponse(content=result, status_code=200)
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
     
