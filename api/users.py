@@ -9,10 +9,10 @@ from passlib.context import CryptContext
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from config import BASE_DIR, VECTOR_DB_PATH
+from config import VECTOR_DB_PATH, USER_DB_PATH
 
 # Database location for user accounts and API keys
-DB_PATH = Path(BASE_DIR) / "users.db"
+DB_PATH = USER_DB_PATH
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

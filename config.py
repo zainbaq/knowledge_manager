@@ -17,6 +17,9 @@ OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-s
 # === Vector DB Settings ===
 VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", str(BASE_DIR / "data" / "vector_index"))
 
+# === User DB Settings ===
+USER_DB_PATH = os.getenv("USER_DB_PATH", Path(BASE_DIR) / "users.db")
+
 # === FastAPI Settings ===
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8501").split(",")
 
