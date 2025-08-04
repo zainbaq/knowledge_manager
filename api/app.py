@@ -44,11 +44,11 @@ app.add_middleware(
 
 class QueryRequest(BaseModel):
     query: str
-    collection: str | None = None
-    collections: list[str] | None = None
+    collection: str = None
+    collections: list[str] = None
 
 
-def validate_upload_files(files: Iterable[UploadFile]) -> str | None:
+def validate_upload_files(files: Iterable[UploadFile]) -> str:
     """Return an error message if any file is invalid."""
     for file in files:
         ext = Path(file.filename).suffix.lower()
