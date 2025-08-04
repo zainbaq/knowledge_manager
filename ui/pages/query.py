@@ -10,7 +10,7 @@ api_key = get_api_key()
 index_options: list[str] = []
 if api_key:
     try:
-        res = api_request("get", "/list-indexes/", headers=get_headers())
+        res = api_request("get", "/api/list-indexes/", headers=get_headers())
         if res.status_code == 200:
             index_options = [idx["collection_name"] for idx in res.json()]
     except Exception:
@@ -36,7 +36,7 @@ if st.button("Submit Query") and query:
         with st.spinner("Thinking..."):
             res = api_request(
                 "post",
-                "/query/",
+                "/api/query/",
                 json=payload,
                 headers=get_headers(),
             )

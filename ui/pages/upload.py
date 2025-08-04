@@ -49,7 +49,7 @@ if st.button("Submit Files") and user_index_name and uploaded_files:
             files = [("files", (f.name, f.getvalue())) for f in uploaded_files]
             res = api_request(
                 "post",
-                "/create-index/",
+                "/api/create-index/",
                 files=files,
                 data={"collection": collection},
                 headers=get_headers(),

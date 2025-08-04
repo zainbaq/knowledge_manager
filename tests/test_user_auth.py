@@ -16,13 +16,13 @@ def test_login_returns_new_api_key(tmp_path):
 
     # Register user
     resp = client.post(
-        "/user/register", json={"username": "alice", "password": "secret"}
+        "/api/user/register", json={"username": "alice", "password": "secret"}
     )
     assert resp.status_code == 200
 
     # Login should return a new key
     resp = client.post(
-        "/user/login", json={"username": "alice", "password": "secret"}
+        "/api/user/login", json={"username": "alice", "password": "secret"}
     )
     assert resp.status_code == 200
     api_key = resp.json()["api_key"]
@@ -46,13 +46,13 @@ def test_create_api_key_generates_unique_keys(tmp_path):
     users.init_db()
 
     client = TestClient(app)
-    client.post("/user/register", json={"username": "bob", "password": "pass"})
+    client.post("/api/user/register", json={"username": "bob", "password": "pass"})
 
     resp1 = client.post(
-        "/user/create-api-key", json={"username": "bob", "password": "pass"}
+        "/api/user/create-api-key", json={"username": "bob", "password": "pass"}
     )
     resp2 = client.post(
-        "/user/create-api-key", json={"username": "bob", "password": "pass"}
+        "/api/user/create-api-key", json={"username": "bob", "password": "pass"}
     )
 
     key1 = resp1.json()["api_key"]

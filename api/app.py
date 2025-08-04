@@ -1,6 +1,6 @@
 """FastAPI routes for managing document indexes and querying them."""
 
-from fastapi import FastAPI, File, UploadFile, Form, Depends
+from fastapi import FastAPI, File, UploadFile, Form, Depends, APIRouter
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -29,8 +29,10 @@ from .users import router as users_router
 
 app = FastAPI()
 
+api_router = APIRouter()
+
 # Mount user management routes
-app.include_router(users_router, prefix="/user")
+api_router.include_router(users_router, prefix="/user")
 
 # Configure CORS. `CORS_ORIGINS` is already a list, so pass it directly
 app.add_middleware(
@@ -120,7 +122,7 @@ async def process_files(
         return len(all_chunks)
     return 0
 
-@app.post("/create-index/")
+@api_router.post("/create-index/")
 async def create_index(
     collection: str = Form(...),
     files: list[UploadFile] = File(...),
@@ -141,7 +143,7 @@ async def create_index(
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
-@app.post("/update-index/")
+@api_router.post("/update-index/")
 async def update_index(
     collection: str = Form(...),
     files: list[UploadFile] = File(...),
@@ -160,7 +162,7 @@ async def update_index(
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
-@app.post("/query/")
+@api_router.post("/query/")
 async def query(request: QueryRequest, current_user: dict = Depends(get_current_user)):
     """Return context for a query across one or many collections."""
     try:
@@ -182,7 +184,7 @@ async def query(request: QueryRequest, current_user: dict = Depends(get_current_
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
-@app.get("/list-indexes/")
+@api_router.get("/list-indexes/")
 async def list_indexes(current_user: dict = Depends(get_current_user)):
     """List all available collections with basic metadata."""
     try:
@@ -191,7 +193,7 @@ async def list_indexes(current_user: dict = Depends(get_current_user)):
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
-@app.delete("/delete-index/{collection_name}")
+@api_router.delete("/delete-index/{collection_name}")
 async def delete_index(
     collection_name: str, current_user: dict = Depends(get_current_user)
 ):
@@ -200,6 +202,8 @@ async def delete_index(
     if "error" in result:
         return JSONResponse(content=result, status_code=500)
     return result
+
+app.include_router(api_router, prefix="/api")
 
 # # Add to api/app.py
 # from fastapi.staticfiles import StaticFiles

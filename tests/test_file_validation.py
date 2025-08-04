@@ -18,14 +18,14 @@ app.dependency_overrides[get_current_user] = override_get_current_user
 client = TestClient(app)
 
 
-@pytest.mark.parametrize("endpoint", ["/create-index/", "/update-index/"])
+@pytest.mark.parametrize("endpoint", ["/api/create-index/", "/api/update-index/"])
 def test_reject_invalid_extension(endpoint):
     files = [("files", ("malware.exe", b"data"))]
     response = client.post(endpoint, data={"collection": "test"}, files=files)
     assert response.status_code == 400
 
 
-@pytest.mark.parametrize("endpoint", ["/create-index/", "/update-index/"])
+@pytest.mark.parametrize("endpoint", ["/api/create-index/", "/api/update-index/"])
 def test_reject_large_file(endpoint):
     original_limit = app_module.MAX_FILE_SIZE_MB
     app_module.MAX_FILE_SIZE_MB = 0

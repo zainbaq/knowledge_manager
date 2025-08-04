@@ -14,7 +14,7 @@ with st.form("register_form"):
 if submitted and reg_user and reg_pass:
     res = api_request(
         "post",
-        "/user/register",
+        "/api/user/register",
         json={"username": reg_user, "password": reg_pass},
     )
     if res.status_code == 200:
@@ -31,7 +31,7 @@ with st.form("login_form"):
 if login_submitted and login_user and login_pass:
     res = api_request(
         "post",
-        "/user/login",
+        "/api/user/login",
         json={"username": login_user, "password": login_pass},
     )
     if res.status_code == 200:
@@ -57,7 +57,7 @@ if st.session_state.username and st.session_state.password:
     if st.button("Create New API Key"):
         res = api_request(
             "post",
-            "/user/create-api-key",
+            "/api/user/create-api-key",
             json={
                 "username": st.session_state.username,
                 "password": st.session_state.password,

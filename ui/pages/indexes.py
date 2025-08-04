@@ -8,7 +8,7 @@ st.markdown("### 💽 Existing Indexes with Metadata")
 api_key = get_api_key()
 if api_key:
     try:
-        res = api_request("get", "/list-indexes/", headers=get_headers())
+        res = api_request("get", "/api/list-indexes/", headers=get_headers())
         if res.status_code == 200:
             indexes = res.json()
 
@@ -32,7 +32,7 @@ if api_key:
                                 files = [("files", (f.name, f.getvalue())) for f in update_files]
                                 update_res = api_request(
                                     "post",
-                                    "/update-index/",
+                                    "/api/update-index/",
                                     files=files,
                                     data={"collection": index_name},
                                     headers=get_headers(),
@@ -56,7 +56,7 @@ if api_key:
                                 if st.button("✅ Yes, Delete", key=confirm_key):
                                     del_res = api_request(
                                         "delete",
-                                        f"/delete-index/{index_name}",
+                                        f"/api/delete-index/{index_name}",
                                         headers=get_headers(),
                                     )
                                     if del_res.status_code == 200:
