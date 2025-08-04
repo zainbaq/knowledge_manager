@@ -87,7 +87,7 @@ Each user has a private vector database and can generate their own API keys.
    ```bash
    curl -X POST -H "Content-Type: application/json" \
      -d '{"username": "alice", "password": "secret"}' \
-     http://127.0.0.1:8000/user/register
+     http://127.0.0.1:8000/api/user/register
    ```
 
 2. **Create an API key** (after registering)
@@ -95,13 +95,13 @@ Each user has a private vector database and can generate their own API keys.
    ```bash
    curl -X POST -H "Content-Type: application/json" \
      -d '{"username": "alice", "password": "secret"}' \
-     http://127.0.0.1:8000/user/create-api-key
+     http://127.0.0.1:8000/api/user/create-api-key
    ```
 
 3. **Use the API key**
 
    ```bash
-   curl -H "X-API-Key: <your-api-key>" http://127.0.0.1:8000/list-indexes/
+   curl -H "X-API-Key: <your-api-key>" http://127.0.0.1:8000/api/list-indexes/
    ```
 
 ---
@@ -110,17 +110,17 @@ Each user has a private vector database and can generate their own API keys.
 
 | Method | Endpoint                  | Description                      |
 |--------|---------------------------|----------------------------------|
-| POST   | `/create-index/`          | Upload files and create index   |
-| POST   | `/update-index/`          | Add files to existing index     |
-| POST   | `/query/`                 | Search one, many, or all indexes |
-| GET    | `/list-indexes/`          | View collections and metadata   |
-| DELETE | `/delete-index/{name}`    | Delete a collection             |
+| POST   | `/api/create-index/`          | Upload files and create index   |
+| POST   | `/api/update-index/`          | Add files to existing index     |
+| POST   | `/api/query/`                 | Search one, many, or all indexes |
+| GET    | `/api/list-indexes/`          | View collections and metadata   |
+| DELETE | `/api/delete-index/{name}`    | Delete a collection             |
 
 ---
 
 ### 📄 File Upload Limits
 
-The `/create-index/` and `/update-index/` endpoints only accept files up to
+The `/api/create-index/` and `/api/update-index/` endpoints only accept files up to
 `MAX_FILE_SIZE_MB` (25 MB by default) and with extensions in
 `ALLOWED_FILE_EXTENSIONS` (`.pdf`, `.docx`, `.txt`, `.md`). Files that exceed
 these limits will result in a `400 Bad Request` response.

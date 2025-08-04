@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 import os
 
 def query_remote_vector_db(url, query, api_key, collections=None):
-    endpoint = url + '/query'
+    endpoint = url + '/api/query'
 
     data = {
         'query' : query
