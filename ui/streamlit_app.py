@@ -29,6 +29,8 @@ def main() -> None:
     ]
     pg = st.navigation(pages)
     pg.run()
+    st.markdown("---")
+    st.caption("This tool is in preview and is still a work in progress.")
 
 
 if __name__ == "__main__":
