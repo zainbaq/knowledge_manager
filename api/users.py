@@ -136,7 +136,7 @@ def create_api_key(user: UserCredentials):
     return {"api_key": api_key}
 
 
-def get_user_by_api_key(api_key: str) -> dict | None:
+def get_user_by_api_key(api_key: str) -> dict:
     """Return user details for a given API key or ``None`` if not found."""
     conn = _get_conn()
     cur = conn.execute(
