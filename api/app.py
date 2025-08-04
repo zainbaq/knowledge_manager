@@ -122,6 +122,16 @@ async def process_files(
         return len(all_chunks)
     return 0
 
+@api_router.post("/status/")
+async def status():
+    try:
+        result = {
+            'status' : 'ok'
+        }
+        return JSONResponse(content=result, status=200)
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+    
 @api_router.post("/create-index/")
 async def create_index(
     collection: str = Form(...),
