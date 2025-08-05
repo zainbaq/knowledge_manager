@@ -42,16 +42,20 @@ if login_submitted and login_user and login_pass:
     else:
         st.error(res.json().get("detail", "Login failed"))
 
-if st.session_state.api_keys:
-    st.markdown("#### Existing API Keys")
-    selected_key = st.selectbox(
-        "Choose an API key",
-        st.session_state.api_keys,
-        key="existing_api_keys",
-    )
-    if st.button("Use Selected Key") and selected_key:
-        st.session_state.api_key = selected_key
-        st.success("API key set for session")
+try:
+    if st.session_state.api_keys:
+        st.markdown("#### Existing API Keys")
+        selected_key = st.selectbox(
+            "Choose an API key",
+            st.session_state.api_keys,
+            key="existing_api_keys",
+        )
+        if st.button("Use Selected Key") and selected_key:
+            st.session_state.api_key = selected_key
+            st.success("API key set for session")
+except AttributeError:
+    st.session_state.api_keys = []
+    
 
 if st.session_state.username and st.session_state.password:
     if st.button("Create New API Key"):
