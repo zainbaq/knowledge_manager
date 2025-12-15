@@ -29,6 +29,7 @@ honcho==1.1.0
 
 # Security
 passlib[bcrypt]==1.7.4
+bcrypt==3.2.2  # Pin to 3.x for passlib 1.7.4 compatibility
 slowapi==0.1.9
 
 # File type detection
