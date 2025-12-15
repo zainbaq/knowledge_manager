@@ -3,6 +3,7 @@ import streamlit as st
 
 from utils.api_client import api_request
 from utils.auth import get_api_key, get_headers
+from utils.error_handling import handle_api_error
 
 
 st.markdown("### Upload Files to Create or Update an Index")
@@ -49,13 +50,21 @@ if st.button("Submit Files") and user_index_name and uploaded_files:
             files = [("files", (f.name, f.getvalue())) for f in uploaded_files]
             res = api_request(
                 "post",
-                "/api/create-index/",
+                "/api/v1/create-index/",
                 files=files,
                 data={"collection": collection},
                 headers=get_headers(),
             )
 
             if res.status_code == 200:
-                st.success(res.json()["message"])
+                data = res.json()
+                st.success(data["message"])
+
+                # Display enhanced metadata
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Files Uploaded", len(uploaded_files))
+                with col2:
+                    st.metric("Chunks Indexed", data.get("indexed_chunks", 0))
             else:
-                st.error(f"Upload failed: {res.json().get('error')}")
+                handle_api_error(res, "Upload")

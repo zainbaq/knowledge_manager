@@ -2,23 +2,25 @@ import streamlit as st
 
 from utils.api_client import api_request
 from utils.auth import get_api_key, get_headers
+from utils.error_handling import handle_api_error
 
 st.markdown("### 💽 Existing Indexes with Metadata")
 
 api_key = get_api_key()
 if api_key:
     try:
-        res = api_request("get", "/api/list-indexes/", headers=get_headers())
+        res = api_request("get", "/api/v1/list-indexes/", headers=get_headers())
         if res.status_code == 200:
-            indexes = res.json()
+            response_data = res.json()
+            collections = response_data.get("collections", [])
 
-            if indexes:
-                for idx in indexes:
-                    index_name = idx["collection_name"]
+            if collections:
+                for col in collections:
+                    index_name = col["name"]
 
-                    with st.expander(f"📂 {index_name} ({idx['num_chunks']} chunks)"):
+                    with st.expander(f"📂 {index_name} ({col['num_chunks']} chunks, {len(col['files'])} files)"):
                         st.markdown("**Files Indexed:**")
-                        for f in idx["files"]:
+                        for f in col["files"]:
                             st.markdown(f"- `{f}`")
 
                         st.markdown("**Add more files:**")
@@ -32,15 +34,19 @@ if api_key:
                                 files = [("files", (f.name, f.getvalue())) for f in update_files]
                                 update_res = api_request(
                                     "post",
-                                    "/api/update-index/",
+                                    "/api/v1/update-index/",
                                     files=files,
                                     data={"collection": index_name},
                                     headers=get_headers(),
                                 )
                                 if update_res.status_code == 200:
-                                    st.success(update_res.json()["message"])
+                                    result = update_res.json()
+                                    st.success(result["message"])
+                                    if "indexed_chunks" in result:
+                                        st.info(f"Indexed {result['indexed_chunks']} new chunks")
+                                    st.rerun()
                                 else:
-                                    st.error(f"Update failed: {update_res.json().get('error')}")
+                                    handle_api_error(update_res, "Update")
 
                         delete_key = f"delete_{index_name}"
                         if st.button(f"❌ Delete '{index_name}'", key=delete_key):
@@ -56,14 +62,15 @@ if api_key:
                                 if st.button("✅ Yes, Delete", key=confirm_key):
                                     del_res = api_request(
                                         "delete",
-                                        f"/api/delete-index/{index_name}",
+                                        f"/api/v1/delete-index/{index_name}",
                                         headers=get_headers(),
                                     )
                                     if del_res.status_code == 200:
                                         st.success(del_res.json()["message"])
                                         del st.session_state["pending_delete"]
+                                        st.rerun()
                                     else:
-                                        st.error(f"Delete failed: {del_res.json().get('error')}")
+                                        handle_api_error(del_res, "Delete")
 
                             with col2:
                                 if st.button("❌ Cancel", key=cancel_key):
@@ -71,7 +78,7 @@ if api_key:
             else:
                 st.info("No indexes found.")
         else:
-            st.error("Failed to retrieve index list.")
+            handle_api_error(res, "List Collections")
     except Exception as e:
         st.error(f"Error: {str(e)}")
 else:

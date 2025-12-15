@@ -3,10 +3,11 @@
 import re
 from typing import Iterable, List
 
-def simple_text_chunker(text, max_tokens=500):
+def simple_text_chunker(text: str, max_tokens: int = 500) -> list[str]:
     """Split *text* into roughly ``max_tokens`` sized chunks."""
     sentences = re.split(r'(?<=[.!?]) +', text)
-    chunks, current = [], ""
+    chunks: list[str] = []
+    current = ""
     for sentence in sentences:
         if len(current) + len(sentence) < max_tokens:
             current += sentence + " "

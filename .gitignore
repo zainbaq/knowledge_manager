@@ -1,7 +1,32 @@
 __pycache__/
 *.pyc
+
+# Environment variables
 .env
+*.env*
+.env.local
+.env.*.local
+
+# IDE
 .vscode/
-data/
+
+# Database files
 users.db
+*.db
+*.db-shm
+*.db-wal
+
+# Vector database
+data/
+data/vector_index/
+
+# API keys and secrets
+*.key
+*.pem
+secrets/
+
+# Notebooks
 experiments.ipynb
+*.ipynb_checkpoints/
+
+CLAUDE.md

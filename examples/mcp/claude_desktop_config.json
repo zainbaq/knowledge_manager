@@ -1,0 +1,27 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/mcp-config.json",
+  "mcpServers": {
+    "knowledge-manager": {
+      "name": "Knowledge Manager",
+      "description": "Document indexing and semantic search with vector embeddings",
+      "url": "http://localhost:8000/api/v1/mcp/",
+      "headers": {
+        "X-API-Key": "${KNOWLEDGE_MANAGER_API_KEY}"
+      },
+      "tools": [
+        "query_knowledge",
+        "query_corpus",
+        "list_collections",
+        "list_corpuses"
+      ],
+      "resources": true,
+      "prompts": false
+    }
+  },
+  "environmentVariables": {
+    "KNOWLEDGE_MANAGER_API_KEY": {
+      "description": "API key for Knowledge Manager authentication",
+      "required": true
+    }
+  }
+}

@@ -1,0 +1,12 @@
+# Development and testing dependencies
+-r requirements.txt
+
+# Testing
+pytest==8.0.0
+pytest-cov==4.1.0
+pytest-asyncio==0.23.4
+
+# Code quality
+black==24.1.1
+mypy==1.8.0
+ruff==0.2.1

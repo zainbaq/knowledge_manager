@@ -29,6 +29,9 @@ def main() -> None:
         st.Page("pages/upload.py", title="Upload Files", icon="📤"),
         st.Page("pages/query.py", title="Query Index", icon="🔍"),
         st.Page("pages/indexes.py", title="View Indexes", icon="📁"),
+        st.Page("pages/corpus_browser.py", title="Browse Corpuses", icon="📚"),
+        st.Page("pages/corpus_management.py", title="Manage Corpuses", icon="🏗️"),
+        st.Page("pages/admin_dashboard.py", title="Admin Dashboard", icon="👑"),
         st.Page("pages/documentation.py", title="Documentation", icon="📖"),
         st.Page("pages/account.py", title="Account", icon="🔐"),
     ]

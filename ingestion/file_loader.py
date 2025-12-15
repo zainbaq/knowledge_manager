@@ -4,12 +4,15 @@ from pathlib import Path
 import fitz  # PyMuPDF
 import docx
 from config import ALLOWED_FILE_EXTENSIONS
+from logging_config import get_logger
+
+logger = get_logger(__name__)
 
 SUPPORTED_EXTENSIONS = ALLOWED_FILE_EXTENSIONS
 
-def collect_files_from_path(path):
+def collect_files_from_path(path: Path | str) -> list[Path]:
     """Return all files under *path* that match supported extensions."""
-    files = []
+    files: list[Path] = []
     path = Path(path)
     if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS:
         files.append(path)
@@ -19,26 +22,34 @@ def collect_files_from_path(path):
                 files.append(file)
     return files
 
-def extract_text_from_file(path):
+def extract_text_from_file(path: Path) -> str:
     """Read a file from disk and return its textual content."""
     ext = path.suffix.lower()
+    logger.debug(f"Extracting text from {path.name} (type: {ext})")
     try:
         if ext == ".txt" or ext == ".md":
-            return path.read_text(encoding="utf-8", errors="ignore")
+            content = path.read_text(encoding="utf-8", errors="ignore")
+            logger.debug(f"Extracted {len(content)} characters from {path.name}")
+            return content
 
         elif ext == ".pdf":
-            return extract_text_from_pdf(path)
+            content = extract_text_from_pdf(path)
+            logger.debug(f"Extracted {len(content)} characters from PDF {path.name}")
+            return content
 
         elif ext == ".docx":
-            return extract_text_from_docx(path)
+            content = extract_text_from_docx(path)
+            logger.debug(f"Extracted {len(content)} characters from DOCX {path.name}")
+            return content
 
         else:
+            logger.warning(f"Unsupported file extension: {ext} for {path.name}")
             return ""
     except Exception as e:
-        print(f"Failed to read {path.name}: {e}")
+        logger.error(f"Failed to read {path.name}: {e}", exc_info=True)
         return ""
 
-def extract_text_from_pdf(path):
+def extract_text_from_pdf(path: Path) -> str:
     """Extract text from a PDF file using PyMuPDF."""
     doc = fitz.open(path)
     text = ""
@@ -46,7 +57,7 @@ def extract_text_from_pdf(path):
         text += page.get_text()
     return text
 
-def extract_text_from_docx(path):
+def extract_text_from_docx(path: Path) -> str:
     """Extract text from a Microsoft Word document."""
     doc = docx.Document(path)
     return "\n".join([para.text for para in doc.paragraphs])
