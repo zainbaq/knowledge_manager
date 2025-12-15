@@ -118,7 +118,18 @@ def _hash_password(password: str) -> str:
 
 
 def _verify_password(password: str, password_hash: str) -> bool:
-    return pwd_context.verify(password, password_hash)
+    # Bcrypt has a 72 byte limit - truncate if necessary for backward compatibility
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        password = password_bytes[:72].decode('utf-8', errors='ignore')
+
+    try:
+        return pwd_context.verify(password, password_hash)
+    except ValueError as e:
+        # Handle bcrypt errors gracefully
+        if 'password cannot be longer than 72 bytes' in str(e):
+            return False
+        raise
 
 
 def _hash_api_key(api_key: str) -> str:
@@ -130,6 +141,13 @@ def _validate_password_strength(password: str) -> None:
         raise HTTPException(
             status_code=400,
             detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters long",
+        )
+
+    # Bcrypt has a 72 byte limit - check byte length, not character length
+    if len(password.encode('utf-8')) > 72:
+        raise HTTPException(
+            status_code=400,
+            detail="Password is too long (maximum 72 bytes)",
         )
     if REQUIRE_COMPLEX_PASSWORD:
         has_lower = any(c.islower() for c in password)
