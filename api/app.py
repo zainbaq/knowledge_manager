@@ -13,7 +13,7 @@ try:
 except ImportError:
     MAGIC_AVAILABLE = False
 
-import openai
+from openai import RateLimitError as OpenAIRateLimitError
 from fastapi import (
     APIRouter,
     Depends,
@@ -76,7 +76,7 @@ async def _generate_embedding_with_retry(chunk: str, max_retries: int = MAX_EMBE
         try:
             async with _embedding_semaphore:
                 return await asyncio.to_thread(get_openai_embedding, chunk)
-        except openai.RateLimitError as e:
+        except OpenAIRateLimitError as e:
             if attempt == max_retries - 1:
                 logger.error(f"Rate limit exceeded after {max_retries} attempts: {e}")
                 raise
@@ -290,7 +290,7 @@ async def status(request: Request):
 async def create_index(
     request: Request,
     collection: str = Form(...),
-    files: list[UploadFile] = File(...),
+    files: List[UploadFile] = File(...),
     current_user: dict = Depends(get_current_user),
 ):
     """Create a new collection and ingest the given files."""
@@ -316,7 +316,7 @@ async def create_index(
 async def update_index(
     request: Request,
     collection: str = Form(...),
-    files: list[UploadFile] = File(...),
+    files: List[UploadFile] = File(...),
     current_user: dict = Depends(get_current_user),
 ):
     """Append new files to an existing collection."""

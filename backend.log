@@ -1,12 +1,35 @@
-/Users/zainbaq/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:34: NotOpenSSLWarning: urllib3 v2.0 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
-  warnings.warn(
-INFO:     Started server process [28921]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-2025-12-15 00:25:07 - INFO - → GET /docs | IP: 127.0.0.1 | API Key: none
-2025-12-15 00:25:07 - INFO - ← GET /docs | Status: 200 | Duration: 2.76ms | IP: 127.0.0.1
-INFO:     127.0.0.1:55909 - "GET /docs HTTP/1.1" 200 OK
-2025-12-15 00:25:13 - INFO - → GET /api/v1/ | IP: 127.0.0.1 | API Key: none
-2025-12-15 00:25:13 - INFO - ← GET /api/v1/ | Status: 404 | Duration: 7.36ms | IP: 127.0.0.1
-INFO:     127.0.0.1:55960 - "GET /api/v1/ HTTP/1.1" 404 Not Found
+Traceback (most recent call last):
+  File "/Users/zainbaq/Documents/Projects/knowledge_manager/api_main.py", line 9, in <module>
+    uvicorn.run("api.app:app", host=host, port=PORT, reload=False)
+  File "/Users/zainbaq/Library/Python/3.9/lib/python/site-packages/uvicorn/main.py", line 587, in run
+    server.run()
+  File "/Users/zainbaq/Library/Python/3.9/lib/python/site-packages/uvicorn/server.py", line 62, in run
+    return asyncio.run(self.serve(sockets=sockets))
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/Users/zainbaq/Library/Python/3.9/lib/python/site-packages/uvicorn/server.py", line 69, in serve
+    config.load()
+  File "/Users/zainbaq/Library/Python/3.9/lib/python/site-packages/uvicorn/config.py", line 458, in load
+    self.loaded_app = import_from_string(self.app)
+  File "/Users/zainbaq/Library/Python/3.9/lib/python/site-packages/uvicorn/importer.py", line 21, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/importlib/__init__.py", line 127, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1030, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1007, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 986, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 680, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 850, in exec_module
+  File "<frozen importlib._bootstrap>", line 228, in _call_with_frames_removed
+  File "/Users/zainbaq/Documents/Projects/knowledge_manager/api/app.py", line 48, in <module>
+    from vector_store.embedder import get_openai_embedding
+  File "/Users/zainbaq/Documents/Projects/knowledge_manager/vector_store/embedder.py", line 12, in <module>
+    client = OpenAI(api_key=OPENAI_API_KEY)
+  File "/Users/zainbaq/Library/Python/3.9/lib/python/site-packages/openai/_client.py", line 123, in __init__
+    super().__init__(
+  File "/Users/zainbaq/Library/Python/3.9/lib/python/site-packages/openai/_base_client.py", line 856, in __init__
+    self._client = http_client or SyncHttpxClientWrapper(
+  File "/Users/zainbaq/Library/Python/3.9/lib/python/site-packages/openai/_base_client.py", line 754, in __init__
+    super().__init__(**kwargs)
+TypeError: __init__() got an unexpected keyword argument 'proxies'
