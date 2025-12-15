@@ -1,0 +1,12 @@
+/Users/zainbaq/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:34: NotOpenSSLWarning: urllib3 v2.0 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+INFO:     Started server process [28921]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2025-12-15 00:25:07 - INFO - → GET /docs | IP: 127.0.0.1 | API Key: none
+2025-12-15 00:25:07 - INFO - ← GET /docs | Status: 200 | Duration: 2.76ms | IP: 127.0.0.1
+INFO:     127.0.0.1:55909 - "GET /docs HTTP/1.1" 200 OK
+2025-12-15 00:25:13 - INFO - → GET /api/v1/ | IP: 127.0.0.1 | API Key: none
+2025-12-15 00:25:13 - INFO - ← GET /api/v1/ | Status: 404 | Duration: 7.36ms | IP: 127.0.0.1
+INFO:     127.0.0.1:55960 - "GET /api/v1/ HTTP/1.1" 404 Not Found

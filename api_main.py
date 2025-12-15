@@ -6,4 +6,4 @@ from config import PORT, API_HOST
 host = API_HOST.replace("http://", "").replace("https://", "")
 
 if __name__ == "__main__":
-    uvicorn.run("api.app:app", host=host, port=PORT, reload=True)
+    uvicorn.run("api.app:app", host=host, port=PORT, reload=False)

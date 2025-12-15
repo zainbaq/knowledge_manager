@@ -3,7 +3,7 @@
 import asyncio
 import threading
 from pathlib import Path
-from typing import AsyncGenerator, Dict
+from typing import AsyncGenerator, Dict, Optional
 
 import chromadb
 from config import VECTOR_DB_PATH
@@ -123,7 +123,7 @@ def get_client(db_path: str = VECTOR_DB_PATH) -> chromadb.PersistentClient:
         return _client_cache[db_path]
 
 
-def clear_client_cache(db_path: str | None = None) -> None:
+def clear_client_cache(db_path: Optional[str] = None) -> None:
     """Clear cached ChromaDB clients. Useful for cleanup or testing.
 
     Args:

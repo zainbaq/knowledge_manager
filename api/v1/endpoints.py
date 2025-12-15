@@ -7,7 +7,12 @@ import uuid
 from pathlib import Path
 from typing import Iterable, List, Optional
 
-import magic
+try:
+    import magic
+    MAGIC_AVAILABLE = True
+except ImportError:
+    MAGIC_AVAILABLE = False
+
 import openai
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
@@ -108,7 +113,11 @@ def validate_upload_files(files: Iterable[UploadFile]) -> Optional[tuple[str, in
         try:
             header = file.file.read(MIME_VALIDATION_BYTES)
             file.file.seek(0)
-            detected_mime = magic.from_buffer(header, mime=True) if header else ""
+            if MAGIC_AVAILABLE:
+                detected_mime = magic.from_buffer(header, mime=True) if header else ""
+            else:
+                # Skip MIME validation if libmagic is not available
+                detected_mime = ""
         except Exception as exc:  # pragma: no cover - defensive
             return (
                 f"Unable to determine file type for {safe_filename}: {exc}",

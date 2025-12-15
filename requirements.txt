@@ -16,7 +16,7 @@ python-multipart==0.0.9
 sse-starlette==2.0.0
 
 # UI
-streamlit==1.31.1
+streamlit>=1.36.0
 
 # HTTP client
 requests==2.31.0

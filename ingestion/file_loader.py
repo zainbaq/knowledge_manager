@@ -1,6 +1,7 @@
 """Utility functions for gathering files and reading their contents."""
 
 from pathlib import Path
+from typing import List, Union
 import fitz  # PyMuPDF
 import docx
 from config import ALLOWED_FILE_EXTENSIONS
@@ -10,9 +11,9 @@ logger = get_logger(__name__)
 
 SUPPORTED_EXTENSIONS = ALLOWED_FILE_EXTENSIONS
 
-def collect_files_from_path(path: Path | str) -> list[Path]:
+def collect_files_from_path(path: Union[Path, str]) -> List[Path]:
     """Return all files under *path* that match supported extensions."""
-    files: list[Path] = []
+    files: List[Path] = []
     path = Path(path)
     if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS:
         files.append(path)
