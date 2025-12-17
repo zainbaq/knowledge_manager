@@ -1,7 +1,7 @@
 # Core AI/ML dependencies
 openai==1.54.0
 httpx==0.25.0
-httpcore==1.0.2
+httpcore
 numpy>=1.22.5,<2.0
 chromadb==0.4.24
 
@@ -29,7 +29,7 @@ honcho==1.1.0
 
 # Security
 passlib[bcrypt]==1.7.4
-bcrypt==3.2.2  # Pin to 3.x for passlib 1.7.4 compatibility
+bcrypt>=4.0.1  # Required by chromadb; password truncation handled in code
 slowapi==0.1.9
 
 # File type detection

@@ -17,8 +17,6 @@ try:
     logger.info(f"Starting FastAPI backend on http://127.0.0.1:{config.PORT}...")
     backend = subprocess.Popen(
         [sys.executable, BACKEND_SCRIPT],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT
     )
     logger.info(f"✅ FastAPI backend process started (PID: {backend.pid})")
 
@@ -26,8 +24,6 @@ try:
     logger.info(f"Starting Streamlit frontend on http://127.0.0.1:{config.FRONTEND_PORT}...")
     frontend = subprocess.Popen(
         ["streamlit", "run", FRONTEND_SCRIPT],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT
     )
     logger.info(f"✅ Streamlit frontend process started (PID: {frontend.pid})")
 

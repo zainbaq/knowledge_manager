@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class QueryRequest(BaseModel):
@@ -53,10 +53,19 @@ class UserCredentials(BaseModel):
     )
     password: str = Field(
         ...,
-        min_length=12,
-        description="Password (minimum 12 characters)",
+        min_length=8,
+        description="Password (minimum 8 characters)",
         examples=["SecurePassword123!"],
     )
+
+    @field_validator("password")
+    @classmethod
+    def truncate_password(cls, v: str) -> str:
+        """Truncate password to 72 bytes for bcrypt compatibility."""
+        encoded = v.encode("utf-8")
+        if len(encoded) > 72:
+            return encoded[:72].decode("utf-8", errors="ignore")
+        return v
 
     class Config:
         json_schema_extra = {

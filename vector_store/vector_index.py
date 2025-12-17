@@ -157,7 +157,10 @@ def get_or_create_collection(name: str = "default", db_path: str = VECTOR_DB_PAT
     name = validate_collection_name(name)
 
     client = get_client(db_path)
-    return client.get_or_create_collection(name=name)
+    return client.get_or_create_collection(
+        name=name,
+        metadata={"hnsw:space": "cosine"}
+    )
 
 
 def add_documents_to_index(
@@ -308,7 +311,7 @@ async def stream_query_results(
                     "text": doc,
                     "metadata": metadata,
                     "distance": distance,
-                    "relevance_score": 1 - distance,  # Higher = more relevant
+                    "relevance_score": 1 - distance / 2,  # Cosine similarity (0-1)
                     "rank": idx + 1,
                 }
 

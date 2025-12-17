@@ -27,7 +27,12 @@ from .validation import validate_username
 DB_PATH = USER_DB_PATH
 API_KEY_TTL_SECONDS = API_KEY_TTL_DAYS * 24 * 60 * 60
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    # Note: bcrypt 4.x+ raises errors for passwords > 72 bytes
+    # We handle truncation manually in _hash_password() and _verify_password()
+)
 
 
 def _get_conn():
@@ -113,16 +118,25 @@ class UserCredentials(BaseModel):
     password: str
 
 
+def _truncate_password(password: str, max_bytes: int = 72) -> str:
+    """Truncate password to max_bytes while preserving UTF-8 validity."""
+    encoded = password.encode('utf-8')
+    if len(encoded) <= max_bytes:
+        return password
+    # Truncate and decode, ignoring incomplete multi-byte sequences at the end
+    truncated = encoded[:max_bytes].decode('utf-8', errors='ignore')
+    return truncated
+
+
 def _hash_password(password: str) -> str:
+    """Hash password with bcrypt, truncating to 72 bytes if necessary."""
+    password = _truncate_password(password, 72)
     return pwd_context.hash(password)
 
 
 def _verify_password(password: str, password_hash: str) -> bool:
-    # Bcrypt has a 72 byte limit - truncate if necessary for backward compatibility
-    password_bytes = password.encode('utf-8')
-    if len(password_bytes) > 72:
-        password = password_bytes[:72].decode('utf-8', errors='ignore')
-
+    """Verify password against hash, truncating to 72 bytes if necessary."""
+    password = _truncate_password(password, 72)
     try:
         return pwd_context.verify(password, password_hash)
     except ValueError as e:
@@ -143,12 +157,14 @@ def _validate_password_strength(password: str) -> None:
             detail=f"Password must be at least {PASSWORD_MIN_LENGTH} characters long",
         )
 
-    # Bcrypt has a 72 byte limit - check byte length, not character length
-    if len(password.encode('utf-8')) > 72:
+    # Bcrypt has a 72 byte limit - warn users if their password will be truncated
+    password_bytes = len(password.encode('utf-8'))
+    if password_bytes > 72:
         raise HTTPException(
             status_code=400,
-            detail="Password is too long (maximum 72 bytes)",
+            detail=f"Password too long ({password_bytes} bytes). Maximum is 72 bytes due to bcrypt limits.",
         )
+
     if REQUIRE_COMPLEX_PASSWORD:
         has_lower = any(c.islower() for c in password)
         has_upper = any(c.isupper() for c in password)

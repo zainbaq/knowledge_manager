@@ -68,8 +68,9 @@ if st.button("Submit Query") and query:
                         source = meta.get("source", "unknown")
                         chunk_idx = meta.get("chunk_index", "?")
 
-                        # Lower distance = more similar (convert to similarity percentage)
-                        similarity = max(0, 100 - (dist * 100))
+                        # Convert cosine distance to similarity percentage
+                        # Cosine distance: 0 (identical) to 2 (opposite)
+                        similarity = (1 - dist / 2) * 100
                         label = f"{source} [chunk {chunk_idx}] - {similarity:.1f}% match"
 
                         with st.expander(label, expanded=(i == 0)):

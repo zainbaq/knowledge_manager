@@ -1,10 +1,10 @@
-import os
 import logging
 from typing import Any
 
 import requests
 
-API_URL = os.getenv("API_URL", "https://knowledge-manager-236c8288fac7.herokuapp.com/").rstrip("/")
+API_URL = "http://127.0.0.1:8000"
+print(f"[DEBUG] api_client loaded with API_URL={API_URL}")
 
 logger = logging.getLogger(__name__)
 

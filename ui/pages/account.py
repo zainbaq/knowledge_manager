@@ -1,11 +1,12 @@
 import streamlit as st
 
-from utils.api_client import api_request
+from utils.api_client import api_request, API_URL
 from utils.auth import logout
 from utils.error_handling import handle_api_error
 
 
 st.markdown("### 🔐 Account Management")
+st.caption(f"API: {API_URL}")
 
 st.subheader("Register")
 with st.form("register_form"):
