@@ -29,7 +29,7 @@ honcho==1.1.0
 
 # Security
 passlib[bcrypt]==1.7.4
-bcrypt>=4.0.1  # Required by chromadb; password truncation handled in code
+bcrypt==4.0.1  # Pin to 4.0.1 - passlib 1.7.4 incompatible with bcrypt 4.1+ (__about__ removed)
 slowapi==0.1.9
 
 # File type detection
