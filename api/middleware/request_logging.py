@@ -28,10 +28,11 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         client_ip = request.client.host if request.client else "unknown"
         api_key = request.headers.get("X-API-Key", "")
         masked_key = f"***{api_key[-4:]}" if len(api_key) > 4 else "none"
+        content_type = request.headers.get("Content-Type", "none")
 
         # Log incoming request
         logger.info(
-            f"→ {method} {path} | IP: {client_ip} | API Key: {masked_key}"
+            f"→ {method} {path} | IP: {client_ip} | API Key: {masked_key} | Content-Type: {content_type}"
         )
 
         # Process request

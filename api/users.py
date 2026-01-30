@@ -67,6 +67,22 @@ def _purge_expired_api_keys(conn: sqlite3.Connection) -> None:
     )
 
 
+def _ensure_cognito_schema(conn: sqlite3.Connection) -> None:
+    """Add cognito_sub and email columns if they don't exist."""
+    cur = conn.execute("PRAGMA table_info(users)")
+    columns = {row[1] for row in cur.fetchall()}
+    if "cognito_sub" not in columns:
+        conn.execute("ALTER TABLE users ADD COLUMN cognito_sub TEXT")
+    if "email" not in columns:
+        conn.execute("ALTER TABLE users ADD COLUMN email TEXT")
+    # Create unique index for cognito_sub (SQLite allows this on existing columns)
+    try:
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_cognito_sub ON users(cognito_sub) WHERE cognito_sub IS NOT NULL")
+    except sqlite3.OperationalError:
+        # Index might already exist from init_db
+        pass
+
+
 def init_db():
     """Create tables for users and API keys if they don't already exist."""
     # Ensure the database directory exists
@@ -80,7 +96,9 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL
+            password_hash TEXT NOT NULL,
+            cognito_sub TEXT,
+            email TEXT
         )
         """
     )
@@ -97,11 +115,13 @@ def init_db():
         """
     )
     _ensure_api_key_schema(conn)
+    _ensure_cognito_schema(conn)
     _purge_expired_api_keys(conn)
 
     # Create indexes for better query performance
     cur.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_expires_at ON api_keys(expires_at)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_users_cognito_sub ON users(cognito_sub)")
 
     conn.commit()
     conn.close()
@@ -319,3 +339,89 @@ def get_user_by_api_key(api_key: Optional[str]) -> Optional[dict]:
     user_path = Path(get_user_db_path(username))
     user_path.mkdir(parents=True, exist_ok=True)
     return {"id": user_id, "username": username, "db_path": str(user_path)}
+
+
+def get_or_create_cognito_user(cognito_sub: str, username: str, email: str = "") -> dict:
+    """
+    Get or create a user from Cognito authentication.
+
+    If a user with the cognito_sub exists, return their details (and update email if changed).
+    Otherwise, create a new user linked to the Cognito account.
+
+    Args:
+        cognito_sub: The unique Cognito user identifier (sub claim)
+        username: The Cognito username
+        email: Optional email from Cognito
+
+    Returns:
+        dict with user_id, username, and db_path
+    """
+    from vector_store.vector_index import get_user_db_path
+
+    conn = _get_conn()
+
+    # First, try to find existing user by cognito_sub
+    cur = conn.execute(
+        "SELECT id, username, email FROM users WHERE cognito_sub = ?",
+        (cognito_sub,),
+    )
+    row = cur.fetchone()
+
+    if row:
+        user_id, db_username, stored_email = row
+        # Update email if it has changed (Cognito is source of truth)
+        if email and email != stored_email:
+            conn.execute(
+                "UPDATE users SET email = ? WHERE id = ?",
+                (email, user_id),
+            )
+            conn.commit()
+        conn.close()
+        user_path = Path(get_user_db_path(db_username))
+        user_path.mkdir(parents=True, exist_ok=True)
+        return {"id": user_id, "username": db_username, "db_path": str(user_path)}
+
+    # User doesn't exist, create them
+    # Generate a random password hash since Cognito handles authentication
+    random_password = secrets.token_hex(32)
+    password_hash = _hash_password(random_password)
+
+    # Ensure username is unique by appending cognito_sub suffix if needed
+    base_username = username
+    unique_username = base_username
+    suffix = 1
+
+    while True:
+        try:
+            cursor = conn.execute(
+                """
+                INSERT INTO users (username, password_hash, cognito_sub, email)
+                VALUES (?, ?, ?, ?)
+                """,
+                (unique_username, password_hash, cognito_sub, email),
+            )
+            user_id = cursor.lastrowid
+            conn.commit()
+            break
+        except sqlite3.IntegrityError as e:
+            if "username" in str(e).lower():
+                # Username exists, try with suffix
+                unique_username = f"{base_username}_{suffix}"
+                suffix += 1
+                if suffix > 100:  # Safety limit
+                    conn.close()
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Could not create unique username for Cognito user"
+                    )
+            else:
+                conn.close()
+                raise
+
+    conn.close()
+
+    # Create vector DB directory for the user
+    user_path = Path(get_user_db_path(unique_username))
+    user_path.mkdir(parents=True, exist_ok=True)
+
+    return {"id": user_id, "username": unique_username, "db_path": str(user_path)}

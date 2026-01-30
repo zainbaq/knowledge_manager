@@ -127,9 +127,10 @@ api_router.include_router(users_router, prefix="/user")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",  # Allow any localhost port
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-API-Key"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],
 )
 
 
@@ -194,10 +195,12 @@ def validate_upload_files(files: Iterable[UploadFile]) -> Optional[str]:
             return f"Unable to determine file type for {safe_filename}: {exc}"
 
         allowed_mimes = ALLOWED_MIME_TYPES.get(ext)
-        if allowed_mimes and detected_mime not in allowed_mimes:
+        # Only reject if we detected a MIME type AND it doesn't match allowed types
+        # Skip validation if magic couldn't determine the type (empty string)
+        if allowed_mimes and detected_mime and detected_mime not in allowed_mimes:
             return (
                 f"Invalid MIME type for {safe_filename}: expected "
-                f"{', '.join(sorted(allowed_mimes))}, detected {detected_mime or 'unknown'}"
+                f"{', '.join(sorted(allowed_mimes))}, detected {detected_mime}"
             )
     return None
 

@@ -49,7 +49,17 @@ EMBEDDING_CONCURRENCY = int(os.getenv("EMBEDDING_CONCURRENCY", "10"))
 MAX_EMBEDDING_RETRIES = int(os.getenv("MAX_EMBEDDING_RETRIES", "3"))
 
 # === FastAPI Settings ===
-CORS_ORIGINS = _as_list(os.getenv("CORS_ORIGINS", "http://localhost:8501"))
+_cors_env = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+CORS_ORIGINS = ["*"] if _cors_env.strip() == "*" else _as_list(_cors_env)
+
+# === AWS Cognito Settings ===
+COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "")
+COGNITO_CLIENT_ID = os.getenv("COGNITO_CLIENT_ID", "")
+COGNITO_REGION = os.getenv("COGNITO_REGION", "")
+# Auto-detect region from user pool ID if not explicitly set
+if not COGNITO_REGION and COGNITO_USER_POOL_ID:
+    COGNITO_REGION = COGNITO_USER_POOL_ID.split("_")[0]
+COGNITO_ENABLED = bool(COGNITO_USER_POOL_ID and COGNITO_REGION)
 
 # === MIME validation ===
 ALLOWED_MIME_TYPES = {

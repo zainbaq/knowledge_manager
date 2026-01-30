@@ -17,6 +17,7 @@ class CorpusMetadata(BaseModel):
     is_public: bool = Field(..., description="Whether corpus is public")
     is_approved: bool = Field(..., description="Whether corpus is approved")
     owner_username: str = Field(..., description="Username of corpus owner")
+    owner_email: Optional[str] = Field(None, description="Email of corpus owner")
     created_at: int = Field(..., description="Creation timestamp (Unix epoch)")
     updated_at: int = Field(..., description="Last update timestamp (Unix epoch)")
     chunk_count: int = Field(default=0, description="Number of chunks", ge=0)
@@ -35,6 +36,7 @@ class CorpusMetadata(BaseModel):
                     "is_public": True,
                     "is_approved": True,
                     "owner_username": "alice",
+                    "owner_email": "alice@example.com",
                     "created_at": 1704067200,
                     "updated_at": 1704153600,
                     "chunk_count": 1500,

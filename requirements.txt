@@ -1,16 +1,15 @@
 # Core AI/ML dependencies
 openai==1.54.0
-httpx==0.25.0
-httpcore
-numpy>=1.22.5,<2.0
-chromadb==0.4.24
+httpx>=0.23.0,<0.28.0  # openai 1.54.0 uses 'proxies' arg removed in httpx 0.28.0
+numpy
+chromadb>=0.4.24
 
 # Configuration
 python-dotenv==1.0.1
 
 # Document processing
 python-docx==1.1.0
-PyMuPDF==1.23.26
+PyMuPDF>=1.23.0
 
 # Web framework
 fastapi==0.109.2
@@ -31,6 +30,8 @@ honcho==1.1.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1  # Pin to 4.0.1 - passlib 1.7.4 incompatible with bcrypt 4.1+ (__about__ removed)
 slowapi==0.1.9
+python-jose[cryptography]==3.3.0  # JWT verification for Cognito
+cachetools>=5.0.0  # Cache JWKS keys
 
 # File type detection
 python-magic==0.4.27

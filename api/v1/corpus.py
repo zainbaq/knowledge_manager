@@ -161,7 +161,8 @@ async def list_corpuses(
         """
         SELECT DISTINCT c.id, c.name, c.display_name, c.description, c.category,
                c.version, c.is_public, c.is_approved, c.owner_id,
-               c.created_at, c.updated_at, u.username as owner_username
+               c.created_at, c.updated_at, u.username as owner_username,
+               u.email as owner_email
         FROM corpuses c
         JOIN users u ON c.owner_id = u.id
         LEFT JOIN corpus_permissions cp ON c.id = cp.corpus_id
@@ -187,6 +188,7 @@ async def list_corpuses(
                 is_public=bool(row[6]),
                 is_approved=bool(row[7]),
                 owner_username=row[11],
+                owner_email=row[12],
                 created_at=row[9],
                 updated_at=row[10],
             )
@@ -217,7 +219,8 @@ async def get_corpus(
         """
         SELECT c.id, c.name, c.display_name, c.description, c.category,
                c.version, c.is_public, c.is_approved, c.owner_id,
-               c.created_at, c.updated_at, u.username as owner_username
+               c.created_at, c.updated_at, u.username as owner_username,
+               u.email as owner_email
         FROM corpuses c
         JOIN users u ON c.owner_id = u.id
         WHERE c.id = ?
@@ -243,6 +246,7 @@ async def get_corpus(
         is_public=bool(row[6]),
         is_approved=bool(row[7]),
         owner_username=row[11],
+        owner_email=row[12],
         created_at=row[9],
         updated_at=row[10],
     )
@@ -356,7 +360,8 @@ async def update_corpus(
         """
         SELECT c.id, c.name, c.display_name, c.description, c.category,
                c.version, c.is_public, c.is_approved, c.owner_id,
-               c.created_at, c.updated_at, u.username as owner_username
+               c.created_at, c.updated_at, u.username as owner_username,
+               u.email as owner_email
         FROM corpuses c
         JOIN users u ON c.owner_id = u.id
         WHERE c.id = ?
@@ -378,6 +383,7 @@ async def update_corpus(
         is_public=bool(row[6]),
         is_approved=bool(row[7]),
         owner_username=row[11],
+        owner_email=row[12],
         created_at=row[9],
         updated_at=row[10],
     )
