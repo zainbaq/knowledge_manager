@@ -19,7 +19,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
-const navigation = [
+export const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Upload', href: '/upload', icon: Upload },
   { name: 'Query', href: '/query', icon: Search },
@@ -39,6 +39,7 @@ export function Sidebar() {
     <aside
       className={cn(
         'fixed left-0 top-0 z-40 h-screen border-r bg-sidebar transition-all duration-300',
+        'hidden md:flex flex-col',
         sidebarCollapsed ? 'w-16' : 'w-64'
       )}
     >

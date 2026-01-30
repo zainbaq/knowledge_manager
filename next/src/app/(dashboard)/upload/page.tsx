@@ -92,7 +92,7 @@ export default function UploadPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Upload Documents</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Upload Documents</h1>
         <p className="text-muted-foreground mt-2">
           Upload documents to create or update a knowledge index.
         </p>
@@ -106,7 +106,7 @@ export default function UploadPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             <Button
               variant={mode === 'new' ? 'default' : 'outline'}
               onClick={() => setMode('new')}

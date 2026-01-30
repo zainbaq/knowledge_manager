@@ -150,14 +150,14 @@ export default function BrowseCorpusesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Browse Corpuses</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Browse Corpuses</h1>
           <p className="text-muted-foreground mt-2">
             Discover and subscribe to curated knowledge corpuses.
           </p>
         </div>
-        <Button asChild>
+        <Button asChild className="w-full sm:w-auto">
           <Link href="/corpuses/manage">Manage My Corpuses</Link>
         </Button>
       </div>
@@ -165,8 +165,8 @@ export default function BrowseCorpusesPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
-            <div className="relative flex-1 min-w-[200px]">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-4">
+            <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search corpuses..."
@@ -175,26 +175,28 @@ export default function BrowseCorpusesPage() {
                 className="pl-9"
               />
             </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="approvedOnly"
-                checked={approvedOnly}
-                onCheckedChange={(checked) => setApprovedOnly(checked as boolean)}
-              />
-              <Label htmlFor="approvedOnly">Approved only</Label>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="approvedOnly"
+                  checked={approvedOnly}
+                  onCheckedChange={(checked) => setApprovedOnly(checked as boolean)}
+                />
+                <Label htmlFor="approvedOnly">Approved only</Label>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -209,7 +211,7 @@ export default function BrowseCorpusesPage() {
 
       {/* Corpus Grid */}
       {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Card key={i}>
               <CardHeader>
@@ -223,7 +225,7 @@ export default function BrowseCorpusesPage() {
           ))}
         </div>
       ) : filteredCorpuses?.length ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filteredCorpuses.map((corpus) => (
             <Card key={corpus.id}>
               <CardHeader className="pb-2">

@@ -86,7 +86,7 @@ LOG_FILE = os.getenv("LOG_FILE", None)  # Optional: set to enable file logging
 
 # === Heroku/Production Settings ===
 PORT = int(os.getenv("PORT", 8000))  # Heroku provides PORT env var
-FRONTEND_PORT = int(os.getenv("FRONTEND_PORT", 8501))
+FRONTEND_PORT = int(os.getenv("FRONTEND_PORT", 3000))
 API_HOST = os.getenv("API_HOST", "http://0.0.0.0")
 
 API_URL = os.getenv("API_URL", f"http://localhost:{PORT}").rstrip("/")

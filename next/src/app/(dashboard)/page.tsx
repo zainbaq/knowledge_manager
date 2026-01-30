@@ -57,7 +57,7 @@ export default function DashboardPage() {
     <div className="space-y-8">
       {/* Welcome Section */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
           Welcome back{user?.attributes?.name ? `, ${user.attributes.name.split(' ')[0]}` : ''}!
         </h1>
         <p className="text-muted-foreground mt-2">
@@ -66,7 +66,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Indexes</CardTitle>
@@ -111,7 +111,7 @@ export default function DashboardPage() {
       {/* Quick Actions */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           {quickActions.map((action) => (
             <Card key={action.href} className="hover:shadow-md transition-shadow">
               <CardHeader>
@@ -143,7 +143,7 @@ export default function DashboardPage() {
               <Link href="/indexes">View All</Link>
             </Button>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {indexesData.collections.slice(0, 6).map((collection) => (
               <Card key={collection.name}>
                 <CardHeader className="pb-2">

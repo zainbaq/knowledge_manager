@@ -82,14 +82,14 @@ export default function QueryPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Query Knowledge</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Query Knowledge</h1>
         <p className="text-muted-foreground mt-2">
           Search across your indexed documents using natural language.
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
-        <div className="space-y-6">
+        <div className="space-y-6 order-2 lg:order-1">
           <Card>
             <CardHeader>
               <CardTitle>Search Query</CardTitle>
@@ -227,7 +227,7 @@ export default function QueryPage() {
         </div>
 
         {/* Collections Sidebar */}
-        <Card className="h-fit">
+        <Card className="h-fit order-1 lg:order-2">
           <CardHeader>
             <CardTitle className="text-base">Collections</CardTitle>
             <CardDescription>

@@ -8,9 +8,9 @@ from logging_config import get_logger
 
 logger = get_logger(__name__)
 
-# Set paths to backend and frontend scripts
-BACKEND_SCRIPT = os.path.join("api_main.py")              # adjust if your FastAPI app is named differently
-FRONTEND_SCRIPT = os.path.join("ui/streamlit_app.py")    # adjust if yours is in a different folder
+# Set paths to backend and frontend
+BACKEND_SCRIPT = os.path.join("api_main.py")
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "next")
 
 try:
     # Start FastAPI backend
@@ -20,12 +20,13 @@ try:
     )
     logger.info(f"✅ FastAPI backend process started (PID: {backend.pid})")
 
-    # Start Streamlit frontend
-    logger.info(f"Starting Streamlit frontend on http://127.0.0.1:{config.FRONTEND_PORT}...")
+    # Start Next.js frontend
+    logger.info(f"Starting Next.js frontend on http://127.0.0.1:{config.FRONTEND_PORT}...")
     frontend = subprocess.Popen(
-        ["streamlit", "run", FRONTEND_SCRIPT],
+        ["npm", "run", "dev", "--", "-p", str(config.FRONTEND_PORT)],
+        cwd=FRONTEND_DIR,
     )
-    logger.info(f"✅ Streamlit frontend process started (PID: {frontend.pid})")
+    logger.info(f"✅ Next.js frontend process started (PID: {frontend.pid})")
 
     logger.info("Both processes running. Press Ctrl+C to stop.")
 
