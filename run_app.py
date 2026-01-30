@@ -21,9 +21,11 @@ try:
     logger.info(f"✅ FastAPI backend process started (PID: {backend.pid})")
 
     # Start Next.js frontend
+    # Use production mode if not in debug/development
+    frontend_cmd = ["npm", "run", "dev"] if config.DEBUG else ["npm", "run", "start"]
     logger.info(f"Starting Next.js frontend on http://127.0.0.1:{config.FRONTEND_PORT}...")
     frontend = subprocess.Popen(
-        ["npm", "run", "dev", "--", "-p", str(config.FRONTEND_PORT)],
+        frontend_cmd + ["--", "-p", str(config.FRONTEND_PORT)],
         cwd=FRONTEND_DIR,
     )
     logger.info(f"✅ Next.js frontend process started (PID: {frontend.pid})")
