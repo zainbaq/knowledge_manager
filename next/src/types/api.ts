@@ -5,6 +5,28 @@ export interface AuthResponse {
   api_key: string;
 }
 
+// API Keys
+export interface ApiKeyInfo {
+  id: number;
+  name: string;
+  key_preview: string;
+  created_at: string | null;
+  expires_at: string | null;
+}
+
+export interface ApiKeysListResponse {
+  api_keys: ApiKeyInfo[];
+}
+
+export interface CreateApiKeyResponse {
+  api_key: string;  // Full key - shown only once
+  id: number;
+  name: string;
+  key_preview: string;
+  created_at: string | null;
+  expires_at: string | null;
+}
+
 // User
 export interface User {
   userId: string;

@@ -6,19 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Copy, Check, ExternalLink, Code, Book, Terminal } from 'lucide-react';
+import { Copy, Check, ExternalLink, Code, Book, Key, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-const pythonExample = `import requests
+// API Key examples (for external/script usage)
+const pythonApiKeyExample = `import requests
 
 # Configuration
 API_URL = "${API_URL}"
-ACCESS_TOKEN = "your-cognito-access-token"
+API_KEY = "your-api-key-here"  # Get from Account > API Keys
 
 headers = {
-    "Authorization": f"Bearer {ACCESS_TOKEN}",
+    "X-API-Key": API_KEY,
     "Content-Type": "application/json"
 }
 
@@ -49,9 +51,9 @@ completion = client.chat.completions.create(
 
 print(completion.choices[0].message.content)`;
 
-const curlExample = `# Query your knowledge base
+const curlApiKeyExample = `# Query your knowledge base
 curl -X POST "${API_URL}/api/v1/query/" \\
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \\
+  -H "X-API-Key: YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "query": "What are the key features?",
@@ -60,23 +62,28 @@ curl -X POST "${API_URL}/api/v1/query/" \\
 
 # Upload files to create an index
 curl -X POST "${API_URL}/api/v1/create-index/" \\
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \\
+  -H "X-API-Key: YOUR_API_KEY" \\
   -F "collection=my_documents" \\
   -F "files=@document1.pdf" \\
   -F "files=@document2.txt"
 
 # List all indexes
 curl -X GET "${API_URL}/api/v1/list-indexes/" \\
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"`;
+  -H "X-API-Key: YOUR_API_KEY"
 
-const jsExample = `// API Client for Knowledge Manager
+# Delete an index
+curl -X DELETE "${API_URL}/api/v1/delete-index/my_documents" \\
+  -H "X-API-Key: YOUR_API_KEY"`;
+
+const jsApiKeyExample = `// API Client for Knowledge Manager
 const API_URL = "${API_URL}";
+const API_KEY = "your-api-key-here"; // Get from Account > API Keys
 
 async function queryKnowledge(query, collection) {
   const response = await fetch(\`\${API_URL}/api/v1/query/\`, {
     method: "POST",
     headers: {
-      "Authorization": \`Bearer \${accessToken}\`,
+      "X-API-Key": API_KEY,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -91,6 +98,14 @@ async function queryKnowledge(query, collection) {
 
   const result = await response.json();
   return result.context; // Compiled context from matching chunks
+}
+
+// List all indexes
+async function listIndexes() {
+  const response = await fetch(\`\${API_URL}/api/v1/list-indexes/\`, {
+    headers: { "X-API-Key": API_KEY },
+  });
+  return response.json();
 }
 
 // Usage
@@ -115,6 +130,55 @@ export default function DocsPage() {
           Learn how to use the Knowledge Manager API.
         </p>
       </div>
+
+      {/* Authentication Methods */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5" />
+            Authentication
+          </CardTitle>
+          <CardDescription>
+            The API supports two authentication methods depending on your use case.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="p-4 border rounded-lg space-y-2">
+              <div className="flex items-center gap-2">
+                <Key className="h-5 w-5 text-blue-600" />
+                <h4 className="font-semibold">API Key (Recommended for Scripts)</h4>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Use API keys for external applications, scripts, and integrations.
+                API keys are long-lived and ideal for server-to-server communication.
+              </p>
+              <code className="block text-xs bg-muted p-2 rounded mt-2">
+                X-API-Key: your-api-key-here
+              </code>
+              <Button variant="outline" size="sm" asChild className="mt-2">
+                <Link href="/account">
+                  <Key className="mr-2 h-4 w-4" />
+                  Manage API Keys
+                </Link>
+              </Button>
+            </div>
+            <div className="p-4 border rounded-lg space-y-2">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-green-600" />
+                <h4 className="font-semibold">Bearer Token (Browser/Frontend)</h4>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Used automatically by this web application via Cognito authentication.
+                Best for browser-based applications with user sessions.
+              </p>
+              <code className="block text-xs bg-muted p-2 rounded mt-2">
+                Authorization: Bearer &lt;cognito-jwt&gt;
+              </code>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* API Reference Links */}
       <Card>
@@ -145,9 +209,10 @@ export default function DocsPage() {
       {/* Quick Start */}
       <Card>
         <CardHeader>
-          <CardTitle>Quick Start</CardTitle>
+          <CardTitle>Quick Start with API Keys</CardTitle>
           <CardDescription>
             Get started with the Knowledge Manager API in your preferred language.
+            These examples use API key authentication for external access.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -163,8 +228,8 @@ export default function DocsPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute top-2 right-2"
-                  onClick={() => copyToClipboard(pythonExample, 'python')}
+                  className="absolute top-2 right-2 z-10"
+                  onClick={() => copyToClipboard(pythonApiKeyExample, 'python')}
                 >
                   {copiedTab === 'python' ? (
                     <Check className="h-4 w-4" />
@@ -173,7 +238,7 @@ export default function DocsPage() {
                   )}
                 </Button>
                 <ScrollArea className="h-[400px] rounded-lg border bg-muted p-4">
-                  <pre className="text-sm font-mono">{pythonExample}</pre>
+                  <pre className="text-sm font-mono">{pythonApiKeyExample}</pre>
                 </ScrollArea>
               </div>
             </TabsContent>
@@ -183,8 +248,8 @@ export default function DocsPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute top-2 right-2"
-                  onClick={() => copyToClipboard(curlExample, 'curl')}
+                  className="absolute top-2 right-2 z-10"
+                  onClick={() => copyToClipboard(curlApiKeyExample, 'curl')}
                 >
                   {copiedTab === 'curl' ? (
                     <Check className="h-4 w-4" />
@@ -193,7 +258,7 @@ export default function DocsPage() {
                   )}
                 </Button>
                 <ScrollArea className="h-[400px] rounded-lg border bg-muted p-4">
-                  <pre className="text-sm font-mono">{curlExample}</pre>
+                  <pre className="text-sm font-mono">{curlApiKeyExample}</pre>
                 </ScrollArea>
               </div>
             </TabsContent>
@@ -203,8 +268,8 @@ export default function DocsPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute top-2 right-2"
-                  onClick={() => copyToClipboard(jsExample, 'javascript')}
+                  className="absolute top-2 right-2 z-10"
+                  onClick={() => copyToClipboard(jsApiKeyExample, 'javascript')}
                 >
                   {copiedTab === 'javascript' ? (
                     <Check className="h-4 w-4" />
@@ -213,7 +278,7 @@ export default function DocsPage() {
                   )}
                 </Button>
                 <ScrollArea className="h-[400px] rounded-lg border bg-muted p-4">
-                  <pre className="text-sm font-mono">{jsExample}</pre>
+                  <pre className="text-sm font-mono">{jsApiKeyExample}</pre>
                 </ScrollArea>
               </div>
             </TabsContent>
@@ -249,6 +314,15 @@ export default function DocsPage() {
                 <EndpointRow method="DELETE" path="/api/v1/corpus/{id}" description="Delete corpus" />
                 <EndpointRow method="POST" path="/api/v1/corpus/{id}/subscribe" description="Subscribe to corpus" />
                 <EndpointRow method="POST" path="/api/v1/corpus/{id}/query" description="Query specific corpus" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-medium">API Key Management</h4>
+              <div className="grid gap-2">
+                <EndpointRow method="GET" path="/api/v1/user/api-keys" description="List your API keys" />
+                <EndpointRow method="POST" path="/api/v1/user/api-keys" description="Create new API key" />
+                <EndpointRow method="DELETE" path="/api/v1/user/api-keys/{id}" description="Revoke API key" />
               </div>
             </div>
           </div>

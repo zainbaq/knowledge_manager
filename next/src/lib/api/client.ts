@@ -15,6 +15,8 @@ import type {
   SubscribeRequest,
   PendingCorpus,
   UsageStats,
+  ApiKeysListResponse,
+  CreateApiKeyResponse,
 } from '@/types/api';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -188,6 +190,23 @@ export const adminApi = {
 
   getUserUsage: (id: number) =>
     request<UsageStats>(`/api/v1/admin/usage/user/${id}`),
+};
+
+// User API key management endpoints
+export const userApi = {
+  listApiKeys: () =>
+    request<ApiKeysListResponse>('/api/v1/user/api-keys'),
+
+  createApiKey: (name: string = 'API Key') =>
+    request<CreateApiKeyResponse>('/api/v1/user/api-keys', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  revokeApiKey: (keyId: number) =>
+    request<{ message: string }>(`/api/v1/user/api-keys/${keyId}`, {
+      method: 'DELETE',
+    }),
 };
 
 export { API_BASE };

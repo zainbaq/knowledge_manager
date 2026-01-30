@@ -51,12 +51,20 @@ def _ensure_api_key_schema(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE api_keys ADD COLUMN created_at INTEGER")
     if "expires_at" not in columns:
         conn.execute("ALTER TABLE api_keys ADD COLUMN expires_at INTEGER")
+    if "name" not in columns:
+        conn.execute("ALTER TABLE api_keys ADD COLUMN name TEXT DEFAULT 'API Key'")
+    if "key_preview" not in columns:
+        conn.execute("ALTER TABLE api_keys ADD COLUMN key_preview TEXT")
     conn.execute(
         "UPDATE api_keys SET created_at = COALESCE(created_at, strftime('%s','now'))"
     )
     conn.execute(
         "UPDATE api_keys SET expires_at = COALESCE(expires_at, created_at + ?)",
         (API_KEY_TTL_SECONDS,),
+    )
+    # Set default name for existing keys without one
+    conn.execute(
+        "UPDATE api_keys SET name = 'Legacy Key' WHERE name IS NULL"
     )
 
 
@@ -197,16 +205,25 @@ def _validate_password_strength(password: str) -> None:
             )
 
 
-def _create_api_key(conn: sqlite3.Connection, user_id: int) -> str:
+def _generate_key_preview(api_key: str) -> str:
+    """Generate a preview of the API key (first 4 + last 4 chars)."""
+    if len(api_key) <= 8:
+        return api_key
+    return f"{api_key[:4]}...{api_key[-4:]}"
+
+
+def _create_api_key(conn: sqlite3.Connection, user_id: int, name: str = "API Key") -> tuple[str, int]:
+    """Create a new API key and return (api_key, key_id)."""
     api_key = secrets.token_hex(16)
     timestamp = _current_timestamp()
     expires_at = timestamp + API_KEY_TTL_SECONDS
-    conn.execute(
-        "INSERT INTO api_keys (key_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-        (_hash_api_key(api_key), user_id, timestamp, expires_at),
+    key_preview = _generate_key_preview(api_key)
+    cursor = conn.execute(
+        "INSERT INTO api_keys (key_hash, user_id, created_at, expires_at, name, key_preview) VALUES (?, ?, ?, ?, ?, ?)",
+        (_hash_api_key(api_key), user_id, timestamp, expires_at, name, key_preview),
     )
     conn.commit()
-    return api_key
+    return api_key, cursor.lastrowid
 
 
 def register_user(username: str, password: str) -> str:
@@ -228,7 +245,7 @@ def register_user(username: str, password: str) -> str:
         raise HTTPException(status_code=400, detail="Username already exists")
 
     # Create API key for the new user
-    api_key = _create_api_key(conn, user_id)
+    api_key, _ = _create_api_key(conn, user_id)
     conn.close()
 
     # Create vector DB directory for the user with safe path construction
@@ -258,7 +275,7 @@ def login_user(username: str, password: str) -> str:
         conn.close()
         raise HTTPException(status_code=401, detail="Invalid credentials")
     user_id = row[0]
-    api_key = _create_api_key(conn, user_id)
+    api_key, _ = _create_api_key(conn, user_id)
     conn.close()
     return api_key
 
@@ -280,7 +297,7 @@ def create_api_key_for_user(username: str, password: str) -> str:
         conn.close()
         raise HTTPException(status_code=401, detail="Invalid credentials")
     user_id = row[0]
-    api_key = _create_api_key(conn, user_id)
+    api_key, _ = _create_api_key(conn, user_id)
     conn.close()
     return api_key
 
@@ -339,6 +356,75 @@ def get_user_by_api_key(api_key: Optional[str]) -> Optional[dict]:
     user_path = Path(get_user_db_path(username))
     user_path.mkdir(parents=True, exist_ok=True)
     return {"id": user_id, "username": username, "db_path": str(user_path)}
+
+
+def list_api_keys_for_user(user_id: int) -> list[dict]:
+    """List all API keys for a user (without exposing full keys)."""
+    conn = _get_conn()
+    cur = conn.execute(
+        """
+        SELECT id, name, key_preview, created_at, expires_at
+        FROM api_keys
+        WHERE user_id = ? AND (expires_at IS NULL OR expires_at > ?)
+        ORDER BY created_at DESC
+        """,
+        (user_id, _current_timestamp()),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    return [
+        {
+            "id": row[0],
+            "name": row[1] or "API Key",
+            "key_preview": row[2] or "****...****",
+            "created_at": datetime.fromtimestamp(row[3], tz=timezone.utc).isoformat() if row[3] else None,
+            "expires_at": datetime.fromtimestamp(row[4], tz=timezone.utc).isoformat() if row[4] else None,
+        }
+        for row in rows
+    ]
+
+
+def create_named_api_key_for_user(user_id: int, name: str = "API Key") -> dict:
+    """Create a new named API key for a user (authenticated via Cognito)."""
+    conn = _get_conn()
+    api_key, key_id = _create_api_key(conn, user_id, name)
+
+    # Get the key details
+    cur = conn.execute(
+        "SELECT created_at, expires_at FROM api_keys WHERE id = ?",
+        (key_id,),
+    )
+    row = cur.fetchone()
+    conn.close()
+
+    return {
+        "api_key": api_key,  # Full key - shown only once
+        "id": key_id,
+        "name": name,
+        "key_preview": _generate_key_preview(api_key),
+        "created_at": datetime.fromtimestamp(row[0], tz=timezone.utc).isoformat() if row[0] else None,
+        "expires_at": datetime.fromtimestamp(row[1], tz=timezone.utc).isoformat() if row[1] else None,
+    }
+
+
+def revoke_api_key_for_user(user_id: int, key_id: int) -> bool:
+    """Revoke (delete) an API key for a user. Returns True if key was deleted."""
+    conn = _get_conn()
+    # Verify the key belongs to this user before deleting
+    cur = conn.execute(
+        "SELECT id FROM api_keys WHERE id = ? AND user_id = ?",
+        (key_id, user_id),
+    )
+    row = cur.fetchone()
+    if not row:
+        conn.close()
+        return False
+
+    conn.execute("DELETE FROM api_keys WHERE id = ?", (key_id,))
+    conn.commit()
+    conn.close()
+    return True
 
 
 def get_or_create_cognito_user(cognito_sub: str, username: str, email: str = "") -> dict:
