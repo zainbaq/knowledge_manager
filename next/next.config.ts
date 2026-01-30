@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  allowedDevOrigins: ["https://knowledge-manager.promethean-labs.co"],
 };
 
 export default nextConfig;
