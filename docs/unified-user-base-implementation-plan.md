@@ -1,4 +1,18 @@
-Perfect! That makes this **way simpler**. Let me give you a streamlined plan:
+> ## ⚠️ SUPERSEDED — do not follow this document
+>
+> Kept for history only. It predates the decided architecture and contradicts it
+> in ways that will cause real misconfiguration:
+>
+> - It assumes region **`us-east-1`**. The estate is on **`us-east-2`**.
+> - It describes standing up a **new, generic** user pool. The decision is **one
+>   shared pool across all apps**, with a separate **App Client** per app.
+> - Its port and redirect examples predate this app's move to port `8511`.
+>
+> Current, accurate sources:
+> - [`COGNITO_AUTH.md`](COGNITO_AUTH.md) — how auth is actually implemented here
+> - [`../.env.example`](../.env.example) — the variables this app actually reads
+> - [`phase0-audit.md`](phase0-audit.md) — verified state of this codebase
+> - [`consolidation-readiness-plan.md`](consolidation-readiness-plan.md) — estate-wide plan
 
 # Simplified Cognito Implementation Plan (No Existing Users)
 

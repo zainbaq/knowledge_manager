@@ -1,15 +1,15 @@
 # Core AI/ML dependencies
 openai==1.54.0
 httpx>=0.23.0,<0.28.0  # openai 1.54.0 uses 'proxies' arg removed in httpx 0.28.0
-numpy
-chromadb>=0.4.24
+numpy==1.26.4
+chromadb==0.5.23
 
 # Configuration
 python-dotenv==1.0.1
 
 # Document processing
 python-docx==1.1.0
-PyMuPDF>=1.23.0
+PyMuPDF==1.24.14  # NOTE: AGPL-3.0 - see docs/phase0-audit.md, estate-wide decision pending
 
 # Web framework
 fastapi==0.109.2
@@ -17,14 +17,8 @@ uvicorn==0.27.1
 python-multipart==0.0.9
 sse-starlette==2.0.0
 
-# UI
-streamlit>=1.36.0
-
 # HTTP client
 requests==2.31.0
-
-# Process management
-honcho==1.1.0
 
 # Security
 passlib[bcrypt]==1.7.4
@@ -34,4 +28,4 @@ python-jose[cryptography]==3.3.0  # JWT verification for Cognito
 cachetools>=5.0.0  # Cache JWKS keys
 
 # File type detection
-python-magic==0.4.27
+python-magic==0.4.27  # Requires the libmagic1 system package (installed in Dockerfile)

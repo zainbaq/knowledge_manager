@@ -7,20 +7,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import HTTPException
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
 from config import (
     API_KEY_TTL_DAYS,
-    AUTH_RATE_LIMIT,
     PASSWORD_MIN_LENGTH,
     REQUIRE_COMPLEX_PASSWORD,
     USER_DB_PATH,
-    VECTOR_DB_PATH,
 )
 
-from .rate_limiting import limiter
 from .validation import validate_username
 
 # Database location for user accounts and API keys
@@ -36,6 +33,7 @@ pwd_context = CryptContext(
 
 
 def _get_conn():
+    ensure_db()
     return sqlite3.connect(DB_PATH)
 
 
@@ -97,7 +95,8 @@ def init_db():
     db_dir = Path(DB_PATH).parent
     db_dir.mkdir(parents=True, exist_ok=True)
 
-    conn = _get_conn()
+    # Raw connect, not _get_conn(): that would re-enter ensure_db() and recurse.
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute(
         """
@@ -135,10 +134,22 @@ def init_db():
     conn.close()
 
 
-# Ensure DB exists on import
-init_db()
+# The schema is created on demand rather than as an import side effect: writing
+# to the filesystem at import time breaks migration tooling, test collection and
+# container startup ordering (the volume may not be mounted yet).
+# Tracks WHICH path was initialised, not merely that something was. A plain
+# boolean would short-circuit after DB_PATH is repointed (tests do this, and so
+# does any process that switches databases), leaving the new database without a
+# schema and every query failing with "no such table".
+_initialised_db_path: str | None = None
 
-router = APIRouter()
+
+def ensure_db() -> None:
+    """Create the schema on first use of a given path. Safe to call repeatedly."""
+    global _initialised_db_path
+    if _initialised_db_path != str(DB_PATH):
+        init_db()
+        _initialised_db_path = str(DB_PATH)
 
 
 class UserCredentials(BaseModel):
@@ -205,6 +216,24 @@ def _validate_password_strength(password: str) -> None:
             )
 
 
+def _namespace_reserved_username(username: str) -> str:
+    """Return a username safe to provision from an external identity provider.
+
+    Names that local registration refuses (validate_username's reserved set) are
+    prefixed rather than rejected, so a pool user named "admin" becomes
+    "ext_admin" and gets an account instead of an error. Returns "" if nothing
+    usable is left, letting the caller fall back to the Cognito sub.
+    """
+    from .validation import RESERVED_USERNAMES
+
+    candidate = (username or "").strip()
+    if not candidate:
+        return ""
+    if candidate.lower() in RESERVED_USERNAMES:
+        return f"ext_{candidate}"
+    return candidate
+
+
 def _generate_key_preview(api_key: str) -> str:
     """Generate a preview of the API key (first 4 + last 4 chars)."""
     if len(api_key) <= 8:
@@ -248,9 +277,9 @@ def register_user(username: str, password: str) -> str:
     api_key, _ = _create_api_key(conn, user_id)
     conn.close()
 
-    # Create vector DB directory for the user with safe path construction
+    # Create vector DB directory for the user, keyed on their internal ID
     from vector_store.vector_index import get_user_db_path
-    user_path = Path(get_user_db_path(username))
+    user_path = Path(get_user_db_path(user_id))
     user_path.mkdir(parents=True, exist_ok=True)
 
     return api_key
@@ -302,30 +331,6 @@ def create_api_key_for_user(username: str, password: str) -> str:
     return api_key
 
 
-@router.post("/register")
-@limiter.limit(AUTH_RATE_LIMIT)
-def register(request: Request, user: UserCredentials):
-    """Register a new user and create a vector DB directory for them."""
-    api_key = register_user(user.username, user.password)
-    return {"message": "User registered", "api_key": api_key}
-
-
-@router.post("/login")
-@limiter.limit(AUTH_RATE_LIMIT)
-def login(request: Request, user: UserCredentials):
-    """Validate user credentials and return a new API key."""
-    api_key = login_user(user.username, user.password)
-    return {"api_key": api_key}
-
-
-@router.post("/create-api-key")
-@limiter.limit(AUTH_RATE_LIMIT)
-def create_api_key(request: Request, user: UserCredentials):
-    """Generate a new API key for a user after verifying credentials."""
-    api_key = create_api_key_for_user(user.username, user.password)
-    return {"api_key": api_key}
-
-
 def get_user_by_api_key(api_key: Optional[str]) -> Optional[dict]:
     """Return user details for a given API key or ``None`` if not found."""
     if not api_key:
@@ -333,7 +338,8 @@ def get_user_by_api_key(api_key: Optional[str]) -> Optional[dict]:
     conn = _get_conn()
     cur = conn.execute(
         """
-        SELECT api_keys.id, api_keys.expires_at, users.id, users.username
+        SELECT api_keys.id, api_keys.expires_at, users.id, users.username,
+               users.cognito_sub
         FROM api_keys
         JOIN users ON api_keys.user_id = users.id
         WHERE api_keys.key_hash = ?
@@ -344,7 +350,7 @@ def get_user_by_api_key(api_key: Optional[str]) -> Optional[dict]:
     if not row:
         conn.close()
         return None
-    api_key_id, expires_at, user_id, username = row
+    api_key_id, expires_at, user_id, username, cognito_sub = row
     if expires_at is not None and expires_at < _current_timestamp():
         conn.execute("DELETE FROM api_keys WHERE id = ?", (api_key_id,))
         conn.commit()
@@ -353,9 +359,14 @@ def get_user_by_api_key(api_key: Optional[str]) -> Optional[dict]:
     conn.close()
     # Use safe path construction
     from vector_store.vector_index import get_user_db_path
-    user_path = Path(get_user_db_path(username))
+    user_path = Path(get_user_db_path(user_id))
     user_path.mkdir(parents=True, exist_ok=True)
-    return {"id": user_id, "username": username, "db_path": str(user_path)}
+    return {
+        "id": user_id,
+        "username": username,
+        "cognito_sub": cognito_sub,
+        "db_path": str(user_path),
+    }
 
 
 def list_api_keys_for_user(user_id: int) -> list[dict]:
@@ -463,17 +474,29 @@ def get_or_create_cognito_user(cognito_sub: str, username: str, email: str = "")
             )
             conn.commit()
         conn.close()
-        user_path = Path(get_user_db_path(db_username))
+        user_path = Path(get_user_db_path(user_id))
         user_path.mkdir(parents=True, exist_ok=True)
-        return {"id": user_id, "username": db_username, "db_path": str(user_path)}
+        return {
+            "id": user_id,
+            "username": db_username,
+            "cognito_sub": cognito_sub,
+            "db_path": str(user_path),
+        }
 
     # User doesn't exist, create them
     # Generate a random password hash since Cognito handles authentication
     random_password = secrets.token_hex(32)
     password_hash = _hash_password(random_password)
 
-    # Ensure username is unique by appending cognito_sub suffix if needed
-    base_username = username
+    # Ensure username is unique by appending a numeric suffix if needed.
+    #
+    # SECURITY: the name arrives from the identity provider, so it is untrusted
+    # input here. Local registration refuses reserved names (see
+    # validate_username) - a local user cannot register as "admin", "system",
+    # etc. Namespace the same names on the Cognito path too, so the two
+    # registration paths agree on what a username may be and a provisioned
+    # account can never collide with a reserved or future special-purpose name.
+    base_username = _namespace_reserved_username(username) or cognito_sub
     unique_username = base_username
     suffix = 1
 
@@ -506,8 +529,13 @@ def get_or_create_cognito_user(cognito_sub: str, username: str, email: str = "")
 
     conn.close()
 
-    # Create vector DB directory for the user
-    user_path = Path(get_user_db_path(unique_username))
+    # Create vector DB directory for the user, keyed on their internal ID
+    user_path = Path(get_user_db_path(user_id))
     user_path.mkdir(parents=True, exist_ok=True)
 
-    return {"id": user_id, "username": unique_username, "db_path": str(user_path)}
+    return {
+        "id": user_id,
+        "username": unique_username,
+        "cognito_sub": cognito_sub,
+        "db_path": str(user_path),
+    }

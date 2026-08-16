@@ -23,8 +23,6 @@ class MCPErrorCode(str, Enum):
 
     # Authorization Errors (403) - Don't retry, need different permissions
     INSUFFICIENT_PERMISSIONS = "auth.insufficient_permissions"
-    CORPUS_NOT_APPROVED = "auth.corpus_not_approved"
-    ADMIN_REQUIRED = "auth.admin_required"
 
     # Validation Errors (422) - Fix parameters and retry
     INVALID_COLLECTION_NAME = "validation.invalid_collection_name"
@@ -109,12 +107,7 @@ def to_mcp_error_code(status_code: int, detail: str) -> MCPErrorCode:
 
     # 403 Forbidden
     elif status_code == 403:
-        if "admin" in detail_lower:
-            return MCPErrorCode.ADMIN_REQUIRED
-        elif "approved" in detail_lower:
-            return MCPErrorCode.CORPUS_NOT_APPROVED
-        else:
-            return MCPErrorCode.INSUFFICIENT_PERMISSIONS
+        return MCPErrorCode.INSUFFICIENT_PERMISSIONS
 
     # 404 Not Found
     elif status_code == 404:
@@ -215,8 +208,6 @@ def get_retry_guidance(error_code: MCPErrorCode) -> dict:
     # Authorization errors - don't retry, need different permissions
     elif error_code in {
         MCPErrorCode.INSUFFICIENT_PERMISSIONS,
-        MCPErrorCode.CORPUS_NOT_APPROVED,
-        MCPErrorCode.ADMIN_REQUIRED,
     }:
         return {
             "should_retry": False,

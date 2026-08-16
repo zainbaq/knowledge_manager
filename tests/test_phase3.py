@@ -28,7 +28,7 @@ def test_api_status():
             print("  ✓ Pydantic model validation passed")
 
         # Test backward compatibility
-        response = requests.get(f"{API_URL}/api/status/")
+        response = requests.get(f"{API_URL}/api/v1/status/")
         print(f"✓ /api/status/ (backward compat): {response.status_code}")
 
         return True
@@ -108,11 +108,11 @@ def test_openapi_docs():
 
     try:
         # Test docs endpoint
-        response = requests.get(f"{API_URL}/docs")
+        response = requests.get(f"{API_URL}/api/docs")
         print(f"✓ /docs endpoint: {response.status_code}")
 
         # Test OpenAPI schema
-        response = requests.get(f"{API_URL}/openapi.json")
+        response = requests.get(f"{API_URL}/api/openapi.json")
         print(f"✓ /openapi.json endpoint: {response.status_code}")
 
         if response.status_code == 200:

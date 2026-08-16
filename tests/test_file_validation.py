@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-import api.app as app_module
+import api.v1.endpoints as endpoints_module
 from api.app import app
 from api.auth import get_current_user
 from api import users
@@ -33,7 +33,12 @@ def setup_test_db(tmp_path_factory):
 def override_auth_for_validation_tests():
     """Override authentication only for file validation tests."""
     def override_get_current_user():
-        return {"db_path": "test_db", "id": 1, "username": "testuser"}
+        return {
+            "db_path": "test_db",
+            "id": 1,
+            "username": "testuser",
+            "cognito_sub": None,
+        }
 
     app.dependency_overrides[get_current_user] = override_get_current_user
     yield
@@ -44,20 +49,21 @@ def override_auth_for_validation_tests():
 client = TestClient(app)
 
 
-@pytest.mark.parametrize("endpoint", ["/api/create-index/", "/api/update-index/"])
+@pytest.mark.parametrize("endpoint", ["/api/v1/create-index/", "/api/v1/update-index/"])
 def test_reject_invalid_extension(endpoint):
     files = [("files", ("malware.exe", b"data"))]
     response = client.post(endpoint, data={"collection": "test"}, files=files)
-    assert response.status_code == 400
+    # v1 returns a typed 415 here; the removed legacy router returned a flat 400.
+    assert response.status_code == 415
 
 
-@pytest.mark.parametrize("endpoint", ["/api/create-index/", "/api/update-index/"])
+@pytest.mark.parametrize("endpoint", ["/api/v1/create-index/", "/api/v1/update-index/"])
 def test_reject_large_file(endpoint):
-    original_limit = app_module.MAX_FILE_SIZE_MB
-    app_module.MAX_FILE_SIZE_MB = 0
+    original_limit = endpoints_module.MAX_FILE_SIZE_MB
+    endpoints_module.MAX_FILE_SIZE_MB = 0
     try:
         files = [("files", ("doc.txt", b"a"))]
         response = client.post(endpoint, data={"collection": "test"}, files=files)
     finally:
-        app_module.MAX_FILE_SIZE_MB = original_limit
-    assert response.status_code == 400
+        endpoints_module.MAX_FILE_SIZE_MB = original_limit
+    assert response.status_code == 413

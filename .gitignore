@@ -1,6 +1,9 @@
 __pycache__/
 *.pyc
 
+# Logs
+*.log
+
 # Environment variables
 .env
 *.env*
@@ -30,3 +33,5 @@ experiments.ipynb
 *.ipynb_checkpoints/
 
 CLAUDE.md
+# Claude Code agent worktrees / local state
+.claude/

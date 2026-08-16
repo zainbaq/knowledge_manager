@@ -10,8 +10,21 @@ from config import USER_DB_PATH
 DB_PATH = USER_DB_PATH
 
 
+# Tracks WHICH path was initialised - see the note in api/users.py.
+_initialised_db_path: str | None = None
+
+
+def ensure_corpus_tables() -> None:
+    """Create the corpus schema on first use of a path. Safe to call repeatedly."""
+    global _initialised_db_path
+    if _initialised_db_path != str(DB_PATH):
+        _initialised_db_path = str(DB_PATH)
+        init_corpus_tables()
+
+
 def _get_conn():
     """Get database connection."""
+    ensure_corpus_tables()
     return sqlite3.connect(DB_PATH)
 
 
@@ -26,7 +39,8 @@ def init_corpus_tables():
     db_dir = Path(DB_PATH).parent
     db_dir.mkdir(parents=True, exist_ok=True)
 
-    conn = _get_conn()
+    # Raw connect, not _get_conn(): that would re-enter ensure_corpus_tables().
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
     # Create corpuses table
@@ -143,5 +157,3 @@ def init_corpus_tables():
     conn.close()
 
 
-# Initialize tables on import
-init_corpus_tables()

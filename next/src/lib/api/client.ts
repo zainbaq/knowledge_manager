@@ -13,13 +13,15 @@ import type {
   CorpusUpdateRequest,
   CorpusVersionsResponse,
   SubscribeRequest,
-  PendingCorpus,
   UsageStats,
   ApiKeysListResponse,
   CreateApiKeyResponse,
 } from '@/types/api';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Same-origin. next.config.ts rewrites /api/* to the backend server-side, so
+// the browser never makes a cross-origin request and no backend URL is baked
+// into the client bundle at build time.
+const API_BASE = '';
 
 export class ApiError extends Error {
   status: number;
@@ -168,28 +170,12 @@ export const corpusApi = {
 
   listVersions: (id: number) =>
     request<CorpusVersionsResponse>(`/api/v1/corpus/${id}/versions`),
-};
 
-// Admin endpoints
-export const adminApi = {
-  getPendingCorpuses: () =>
-    request<PendingCorpus[]>('/api/v1/admin/corpuses/pending'),
-
-  approveCorpus: (id: number) =>
-    request<{ message: string }>(`/api/v1/admin/corpuses/${id}/approve`, {
-      method: 'POST',
-    }),
-
-  rejectCorpus: (id: number) =>
-    request<{ message: string }>(`/api/v1/admin/corpuses/${id}/reject`, {
-      method: 'POST',
-    }),
-
-  getCorpusUsage: (id: number) =>
-    request<UsageStats>(`/api/v1/admin/usage/corpus/${id}`),
-
-  getUserUsage: (id: number) =>
-    request<UsageStats>(`/api/v1/admin/usage/user/${id}`),
+  // Requires "admin" permission on this specific corpus (owner, or a
+  // collaborator the owner granted admin-tier access to via the permissions
+  // endpoint) - a per-corpus role, unrelated to any site-wide admin concept.
+  getUsage: (id: number) =>
+    request<UsageStats>(`/api/v1/corpus/${id}/usage`),
 };
 
 // User API key management endpoints
@@ -207,6 +193,11 @@ export const userApi = {
     request<{ message: string }>(`/api/v1/user/api-keys/${keyId}`, {
       method: 'DELETE',
     }),
+
+  // Always the caller's own stats - no user id, nothing to authorize beyond
+  // being logged in.
+  getMyUsage: () =>
+    request<UsageStats>('/api/v1/user/usage'),
 };
 
 export { API_BASE };

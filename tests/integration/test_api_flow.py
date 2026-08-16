@@ -19,7 +19,7 @@ def test_complete_user_workflow(client, test_db):
     password = "IntegrationTest123!"
 
     register_response = client.post(
-        "/api/user/register",
+        "/api/v1/user/register",
         json={"username": username, "password": password}
     )
     assert register_response.status_code == 200
@@ -29,7 +29,7 @@ def test_complete_user_workflow(client, test_db):
 
     # Step 2: Login with the same credentials
     login_response = client.post(
-        "/api/user/login",
+        "/api/v1/user/login",
         json={"username": username, "password": password}
     )
     assert login_response.status_code == 200
@@ -41,7 +41,7 @@ def test_complete_user_workflow(client, test_db):
     test_content = b"This is a test document about machine learning and AI."
 
     upload_response = client.post(
-        "/api/create-index/",
+        "/api/v1/create-index/",
         data={"collection": collection_name},
         files=[("files", ("test.txt", test_content, "text/plain"))],
         headers={"X-API-Key": api_key}
@@ -52,7 +52,7 @@ def test_complete_user_workflow(client, test_db):
 
     # Step 4: List collections to verify creation
     list_response = client.get(
-        "/api/list-indexes/",
+        "/api/v1/list-indexes/",
         headers={"X-API-Key": api_key}
     )
     assert list_response.status_code == 200
@@ -62,7 +62,7 @@ def test_complete_user_workflow(client, test_db):
 
     # Step 5: Query the collection
     query_response = client.post(
-        "/api/query/",
+        "/api/v1/query/",
         json={"query": "What is machine learning?", "collection": collection_name},
         headers={"X-API-Key": api_key}
     )
@@ -75,14 +75,14 @@ def test_complete_user_workflow(client, test_db):
 
     # Step 6: Delete the collection
     delete_response = client.delete(
-        f"/api/delete-index/{collection_name}",
+        f"/api/v1/delete-index/{collection_name}",
         headers={"X-API-Key": api_key}
     )
     assert delete_response.status_code == 200
 
     # Step 7: Verify collection is deleted
     list_response_after = client.get(
-        "/api/list-indexes/",
+        "/api/v1/list-indexes/",
         headers={"X-API-Key": api_key}
     )
     assert list_response_after.status_code == 200
@@ -97,8 +97,8 @@ def test_multi_user_isolation(client, test_db):
     user1_data = {"username": "user1", "password": "User1Password123!"}
     user2_data = {"username": "user2", "password": "User2Password123!"}
 
-    user1_response = client.post("/api/user/register", json=user1_data)
-    user2_response = client.post("/api/user/register", json=user2_data)
+    user1_response = client.post("/api/v1/user/register", json=user1_data)
+    user2_response = client.post("/api/v1/user/register", json=user2_data)
 
     assert user1_response.status_code == 200
     assert user2_response.status_code == 200
@@ -109,7 +109,7 @@ def test_multi_user_isolation(client, test_db):
     # User 1 creates a collection
     collection_name = "user1_private_collection"
     client.post(
-        "/api/create-index/",
+        "/api/v1/create-index/",
         data={"collection": collection_name},
         files=[("files", ("user1_doc.txt", b"User 1's private data", "text/plain"))],
         headers={"X-API-Key": user1_api_key}
@@ -117,7 +117,7 @@ def test_multi_user_isolation(client, test_db):
 
     # User 2 tries to list collections (should only see their own)
     user2_list_response = client.get(
-        "/api/list-indexes/",
+        "/api/v1/list-indexes/",
         headers={"X-API-Key": user2_api_key}
     )
     assert user2_list_response.status_code == 200
@@ -128,7 +128,7 @@ def test_multi_user_isolation(client, test_db):
 
     # User 2 tries to query User 1's collection (should fail or return empty)
     user2_query_response = client.post(
-        "/api/query/",
+        "/api/v1/query/",
         json={"query": "private data", "collection": collection_name},
         headers={"X-API-Key": user2_api_key}
     )
@@ -143,7 +143,7 @@ def test_update_existing_index(client, test_db):
 
     # Create user
     user_response = client.post(
-        "/api/user/register",
+        "/api/v1/user/register",
         json={"username": "updateuser", "password": "UpdateTest123!"}
     )
     api_key = user_response.json()["api_key"]
@@ -152,7 +152,7 @@ def test_update_existing_index(client, test_db):
 
     # Create initial collection
     create_response = client.post(
-        "/api/create-index/",
+        "/api/v1/create-index/",
         data={"collection": collection_name},
         files=[("files", ("doc1.txt", b"First document content", "text/plain"))],
         headers={"X-API-Key": api_key}
@@ -162,7 +162,7 @@ def test_update_existing_index(client, test_db):
 
     # Update the collection with more documents
     update_response = client.post(
-        "/api/update-index/",
+        "/api/v1/update-index/",
         data={"collection": collection_name},
         files=[("files", ("doc2.txt", b"Second document content", "text/plain"))],
         headers={"X-API-Key": api_key}
@@ -175,7 +175,7 @@ def test_update_existing_index(client, test_db):
 
     # Query should return results from both documents
     query_response = client.post(
-        "/api/query/",
+        "/api/v1/query/",
         json={"query": "document", "collection": collection_name},
         headers={"X-API-Key": api_key}
     )
@@ -189,7 +189,7 @@ def test_concurrent_file_processing(client, test_db):
 
     # Create user
     user_response = client.post(
-        "/api/user/register",
+        "/api/v1/user/register",
         json={"username": "concurrent_user", "password": "ConcurrentTest123!"}
     )
     api_key = user_response.json()["api_key"]
@@ -204,7 +204,7 @@ def test_concurrent_file_processing(client, test_db):
     ]
 
     upload_response = client.post(
-        "/api/create-index/",
+        "/api/v1/create-index/",
         data={"collection": collection_name},
         files=files,
         headers={"X-API-Key": api_key}
@@ -215,7 +215,7 @@ def test_concurrent_file_processing(client, test_db):
 
     # Query should return content from all files
     query_response = client.post(
-        "/api/query/",
+        "/api/v1/query/",
         json={"query": "file", "collection": collection_name},
         headers={"X-API-Key": api_key}
     )
@@ -227,7 +227,7 @@ def test_query_multiple_collections(client, test_db):
 
     # Create user
     user_response = client.post(
-        "/api/user/register",
+        "/api/v1/user/register",
         json={"username": "multi_coll_user", "password": "MultiColl123!"}
     )
     api_key = user_response.json()["api_key"]
@@ -237,14 +237,14 @@ def test_query_multiple_collections(client, test_db):
     collection2 = "collection2"
 
     client.post(
-        "/api/create-index/",
+        "/api/v1/create-index/",
         data={"collection": collection1},
         files=[("files", ("doc1.txt", b"Machine learning content", "text/plain"))],
         headers={"X-API-Key": api_key}
     )
 
     client.post(
-        "/api/create-index/",
+        "/api/v1/create-index/",
         data={"collection": collection2},
         files=[("files", ("doc2.txt", b"Deep learning content", "text/plain"))],
         headers={"X-API-Key": api_key}
@@ -252,7 +252,7 @@ def test_query_multiple_collections(client, test_db):
 
     # Query both collections
     query_response = client.post(
-        "/api/query/",
+        "/api/v1/query/",
         json={"query": "learning", "collections": [collection1, collection2]},
         headers={"X-API-Key": api_key}
     )
@@ -269,14 +269,14 @@ def test_api_key_generation(client, test_db):
 
     # Register user
     user_response = client.post(
-        "/api/user/register",
+        "/api/v1/user/register",
         json={"username": "keyuser", "password": "KeyUser123!@"}
     )
     first_api_key = user_response.json()["api_key"]
 
     # Generate a new API key
     new_key_response = client.post(
-        "/api/user/create-api-key",
+        "/api/v1/user/create-api-key",
         json={"username": "keyuser", "password": "KeyUser123!@"}
     )
     assert new_key_response.status_code == 200, f"Response: {new_key_response.json()}"
@@ -288,8 +288,8 @@ def test_api_key_generation(client, test_db):
     assert first_api_key != second_api_key
 
     # Both keys should work for authentication
-    response1 = client.get("/api/list-indexes/", headers={"X-API-Key": first_api_key})
-    response2 = client.get("/api/list-indexes/", headers={"X-API-Key": second_api_key})
+    response1 = client.get("/api/v1/list-indexes/", headers={"X-API-Key": first_api_key})
+    response2 = client.get("/api/v1/list-indexes/", headers={"X-API-Key": second_api_key})
 
     assert response1.status_code == 200
     assert response2.status_code == 200

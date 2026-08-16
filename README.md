@@ -1,6 +1,8 @@
-# 🧠 Knowledge Indexer
+# 🧠 Knowledge Manager
 
-A local knowledge management solution built with **FastAPI** and **Streamlit** that lets users upload files (PDF, DOCX, TXT, etc.), chunk and embed them using OpenAI embeddings, store them in a persistent **local vector database (ChromaDB)**, and query them intelligently.
+A knowledge management service built with **FastAPI** and a **Next.js** frontend that lets users upload files (PDF, DOCX, TXT, MD), chunk and embed them using OpenAI embeddings, store them in a persistent **vector database (ChromaDB)**, and query them semantically.
+
+Part of the Promethean Labs suite. It runs as two containers (backend + frontend) behind a reverse proxy, shares one AWS Cognito user pool with the other apps, and is also consumed as an MCP server by Promethean AI.
 
 ---
 
@@ -32,8 +34,11 @@ A local knowledge management solution built with **FastAPI** and **Streamlit** t
 ├── vector_store/           # Embedding + ChromaDB logic
 │   ├── embedder.py
 │   └── vector_index.py
-├── streamlit_app.py        # Streamlit frontend
-├── run_app.py              # Starts backend + frontend together
+├── next/                   # Next.js frontend (+ its own Dockerfile)
+├── mcp/                    # MCP tool + resource handlers
+├── scripts/                # Operational tooling (storage migration)
+├── Dockerfile              # Backend image
+├── docker-compose.yml      # Local stack: backend + frontend
 ├── requirements.txt
 └── README.md
 ```
@@ -69,15 +74,28 @@ At a minimum, `OPENAI_API_KEY` must be set before running the app.
 
 ## ▶️ Run the App
 
-To launch both the backend and frontend:
+Copy `.env.example` to `.env`, fill in `OPENAI_API_KEY` and the `COGNITO_*` values, then:
 
 ```bash
-python run_app.py
+docker compose up --build
 ```
 
 Then open:
-- FastAPI backend: http://127.0.0.1:8000/docs
-- Streamlit UI: http://localhost:8501
+- App: http://localhost:8511
+- API docs (Swagger): http://localhost:8511/api/docs
+
+Container-internal ports match the other Promethean apps (backend `8000`, frontend
+`8501`); the published host ports are offset to `8010`/`8511` so several apps can
+run locally at once. In production nothing is published — Traefik reaches the
+containers over the Docker network.
+
+The frontend proxies `/api/*` to the backend server-side, so the browser only ever
+talks to one origin and no backend URL is baked into the client bundle.
+
+> **Note:** `BACKEND_URL` is consumed by `next.config.ts`'s `rewrites()`, which
+> Next evaluates at **build** time. It must be passed as a Docker build arg —
+> supplying it only as runtime container env leaves the localhost fallback baked
+> in and every proxied API call fails with `ECONNREFUSED`.
 
 ---
 
@@ -90,7 +108,7 @@ Each user has a private vector database and can generate their own API keys.
   ```bash
   curl -X POST -H "Content-Type: application/json" \
     -d '{"username": "alice", "password": "Sup3rSecret!23"}' \
-    http://127.0.0.1:8000/api/user/register
+    http://localhost:8511/api/v1/user/register
   ```
 
 2. **Create an API key** (after registering)
@@ -98,13 +116,13 @@ Each user has a private vector database and can generate their own API keys.
   ```bash
   curl -X POST -H "Content-Type: application/json" \
     -d '{"username": "alice", "password": "Sup3rSecret!23"}' \
-    http://127.0.0.1:8000/api/user/create-api-key
+    http://localhost:8511/api/v1/user/create-api-key
   ```
 
 3. **Use the API key**
 
    ```bash
-   curl -H "X-API-Key: <your-api-key>" http://127.0.0.1:8000/api/list-indexes/
+   curl -H "X-API-Key: <your-api-key>" http://localhost:8511/api/v1/list-indexes/
    ```
 
 ---
@@ -113,11 +131,11 @@ Each user has a private vector database and can generate their own API keys.
 
 | Method | Endpoint                  | Description                      |
 |--------|---------------------------|----------------------------------|
-| POST   | `/api/create-index/`          | Upload files and create index   |
-| POST   | `/api/update-index/`          | Add files to existing index     |
-| POST   | `/api/query/`                 | Search one, many, or all indexes |
-| GET    | `/api/list-indexes/`          | View collections and metadata   |
-| DELETE | `/api/delete-index/{name}`    | Delete a collection             |
+| POST   | `/api/v1/create-index/`          | Upload files and create index   |
+| POST   | `/api/v1/update-index/`          | Add files to existing index     |
+| POST   | `/api/v1/query/`                 | Search one, many, or all indexes |
+| GET    | `/api/v1/list-indexes/`          | View collections and metadata   |
+| DELETE | `/api/v1/delete-index/{name}`    | Delete a collection             |
 
 ---
 
@@ -132,7 +150,7 @@ Knowledge Manager supports the **Model Context Protocol (MCP)**, enabling AI ass
 2. **Query via MCP** using JSON-RPC 2.0:
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/mcp/ \
+curl -X POST http://localhost:8511/api/v1/mcp/ \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-api-key" \
   -d '{
@@ -152,7 +170,7 @@ curl -X POST http://localhost:8000/api/v1/mcp/ \
 3. **Stream results** for progressive queries:
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/mcp/query/stream \
+curl -X POST http://localhost:8511/api/v1/mcp/query/stream \
   -H "X-API-Key: your-api-key" \
   -H "Accept: text/event-stream" \
   -d '{"query": "What is Python?", "n_results": 5}'
@@ -181,10 +199,10 @@ MCP clients can access corpus metadata as resources:
 
 ### 📄 File Upload Limits
 
-The `/api/create-index/` and `/api/update-index/` endpoints only accept files up to
-`MAX_FILE_SIZE_MB` (25 MB by default) and with extensions in
+The `/api/v1/create-index/` and `/api/v1/update-index/` endpoints only accept files up to
+`MAX_FILE_SIZE_MB` (100 MB in the shipped compose file) and with extensions in
 `ALLOWED_FILE_EXTENSIONS` (`.pdf`, `.docx`, `.txt`, `.md`). Files that exceed
-these limits will result in a `400 Bad Request` response.
+these limits are rejected with `413 Payload Too Large` or `415 Unsupported Media Type`.
 
 Additional security controls:
 - Uploads undergo MIME-type validation, so mismatched extensions are rejected.
@@ -195,7 +213,7 @@ Additional security controls:
 
 ## 🔒 Security Features
 
-Knowledge Indexer implements multiple layers of security to protect your data and prevent abuse:
+Knowledge Manager implements multiple layers of security to protect your data and prevent abuse:
 
 ### Authentication & Authorization
 - **API Key Authentication**: All protected endpoints require a valid API key via the `X-API-Key` header
@@ -228,7 +246,7 @@ All endpoints are rate-limited to prevent abuse:
 - **Management endpoints** (`/list-indexes`, `/delete-index`): 30 requests/minute (configurable via `MANAGEMENT_RATE_LIMIT`)
 
 ### CORS Configuration
-- Restrictive CORS policy (default: `http://localhost:8501` only)
+- CORS is restrictive by default; the frontend needs no entry because it proxies same-origin
 - Explicit allowlist for origins, methods, and headers
 - Configurable via `CORS_ORIGINS` environment variable
 
@@ -259,7 +277,7 @@ MANAGEMENT_RATE_LIMIT=30/minute
 MAX_FILE_SIZE_MB=25
 
 # CORS
-CORS_ORIGINS=http://localhost:8501,https://yourdomain.com
+CORS_ORIGINS=https://yourdomain.com
 
 # Logging
 LOG_LEVEL=INFO
@@ -285,7 +303,7 @@ Comprehensive documentation is available in the `docs/` directory:
   - User management endpoints
   - Document management (upload, query, delete)
   - Corpus management (create, query, permissions)
-  - Admin operations
+  - Usage statistics (self-service and per-corpus)
   - MCP protocol (JSON-RPC 2.0)
   - Error codes and rate limiting
 
@@ -302,7 +320,7 @@ Comprehensive documentation is available in the `docs/` directory:
 | Topic | Resource |
 |-------|----------|
 | Getting Started | [README](#run-the-app) |
-| API Documentation | [Swagger UI](http://localhost:8000/docs) |
+| API Documentation | [Swagger UI](http://localhost:8511/api/docs) |
 | System Architecture | [ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | API Reference | [API_REFERENCE.md](docs/API_REFERENCE.md) |
 | MCP Integration | [MCP_INTEGRATION.md](docs/MCP_INTEGRATION.md) |
@@ -324,7 +342,7 @@ Comprehensive documentation is available in the `docs/` directory:
 ## 🧑‍💻 Built With
 
 - [FastAPI](https://fastapi.tiangolo.com/)
-- [Streamlit](https://streamlit.io/)
+- [Next.js](https://nextjs.org/)
 - [ChromaDB](https://www.trychroma.com/)
 - [OpenAI Python SDK](https://github.com/openai/openai-python)
 

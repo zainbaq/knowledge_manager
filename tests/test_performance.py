@@ -13,14 +13,14 @@ def test_performance():
     print("\n1. Registering test user...")
     try:
         register_response = requests.post(
-            f"{API_URL}/api/user/register",
+            f"{API_URL}/api/v1/user/register",
             json={"username": "perftest", "password": "PerfTest123!"}
         )
         if register_response.status_code != 200:
             print(f"   Registration failed (user may already exist): {register_response.status_code}")
             # Try login instead
             login_response = requests.post(
-                f"{API_URL}/api/user/login",
+                f"{API_URL}/api/v1/user/login",
                 json={"username": "perftest", "password": "PerfTest123!"}
             )
             api_key = login_response.json()["api_key"]
@@ -29,7 +29,7 @@ def test_performance():
         print(f"   ✓ Got API key: {api_key[:10]}...")
     except Exception as e:
         print(f"   ✗ Error: {e}")
-        print("   Make sure the API is running: python run_app.py")
+        print("   Make sure the API is running: uvicorn api.app:app --port 8000")
         sys.exit(1)
     
     headers = {"X-API-Key": api_key}
@@ -47,7 +47,7 @@ def test_performance():
     start = time.time()
     with open("test_large_doc.txt", "rb") as f:
         upload_response = requests.post(
-            f"{API_URL}/api/create-index/",
+            f"{API_URL}/api/v1/create-index/",
             data={"collection": "perf_test_1"},
             files={"files": ("large_doc.txt", f, "text/plain")},
             headers=headers
@@ -71,7 +71,7 @@ def test_performance():
         
         with open(f"test_doc_{i}.txt", "rb") as f:
             requests.post(
-                f"{API_URL}/api/create-index/",
+                f"{API_URL}/api/v1/create-index/",
                 data={"collection": f"perf_test_{i}"},
                 files={"files": (f"doc{i}.txt", f, "text/plain")},
                 headers=headers
@@ -84,7 +84,7 @@ def test_performance():
     
     start = time.time()
     query_response = requests.post(
-        f"{API_URL}/api/query/",
+        f"{API_URL}/api/v1/query/",
         json={"query": "What is machine learning?"},  # Query all collections
         headers=headers
     )
@@ -102,7 +102,7 @@ def test_performance():
     print("\n5. Cleaning up test collections...")
     for i in range(1, 6):
         requests.delete(
-            f"{API_URL}/api/delete-index/perf_test_{i}",
+            f"{API_URL}/api/v1/delete-index/perf_test_{i}",
             headers=headers
         )
     print("   ✓ Cleanup complete")

@@ -45,13 +45,12 @@ import {
   ChevronDown,
   Globe,
   Lock,
-  CheckCircle,
-  Clock,
   Loader2,
   History,
   Save,
+  BarChart3,
 } from 'lucide-react';
-import type { Corpus, CorpusVersion } from '@/types/api';
+import type { Corpus, CorpusVersion, UsageStats } from '@/types/api';
 
 const createCorpusSchema = z.object({
   name: z
@@ -246,7 +245,7 @@ export default function ManageCorpusesPage() {
                       <div className="space-y-1 leading-none">
                         <FormLabel>Make Public</FormLabel>
                         <FormDescription>
-                          Public corpuses require admin approval
+                          Public corpuses are visible to every user immediately
                         </FormDescription>
                       </div>
                     </FormItem>
@@ -420,6 +419,7 @@ function CorpusCard({
   isUpdating: boolean;
 }) {
   const [editMode, setEditMode] = useState(false);
+  const [showUsage, setShowUsage] = useState(false);
   const [editData, setEditData] = useState({
     display_name: corpus.display_name,
     description: corpus.description || '',
@@ -431,6 +431,14 @@ function CorpusCard({
     queryKey: ['corpus-versions', corpus.id],
     queryFn: () => corpusApi.listVersions(corpus.id),
     enabled: editMode,
+  });
+
+  // Available to the owner (and anyone the owner has granted admin-tier
+  // permission on this specific corpus) - not a site-wide admin concept.
+  const { data: usage, isLoading: usageLoading } = useQuery<UsageStats>({
+    queryKey: ['corpus-usage', corpus.id],
+    queryFn: () => corpusApi.getUsage(corpus.id),
+    enabled: showUsage,
   });
 
   const handleSave = () => {
@@ -449,17 +457,10 @@ function CorpusCard({
             </div>
             <div className="flex items-center gap-2">
               {corpus.is_public ? (
-                corpus.is_approved ? (
-                  <Badge variant="default" className="bg-green-600">
-                    <Globe className="mr-1 h-3 w-3" />
-                    Public (Approved)
-                  </Badge>
-                ) : (
-                  <Badge variant="outline">
-                    <Clock className="mr-1 h-3 w-3" />
-                    Pending Approval
-                  </Badge>
-                )
+                <Badge variant="default" className="bg-green-600">
+                  <Globe className="mr-1 h-3 w-3" />
+                  Public
+                </Badge>
               ) : (
                 <Badge variant="secondary">
                   <Lock className="mr-1 h-3 w-3" />
@@ -560,6 +561,35 @@ function CorpusCard({
                   </div>
                 )}
 
+                {/* Usage */}
+                {showUsage && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Usage</Label>
+                    {usageLoading ? (
+                      <Skeleton className="h-16 w-full" />
+                    ) : usage ? (
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded bg-muted/50 py-2">
+                          <div className="text-lg font-bold">{usage.unique_users ?? '—'}</div>
+                          <div className="text-xs text-muted-foreground">Users</div>
+                        </div>
+                        <div className="rounded bg-muted/50 py-2">
+                          <div className="text-lg font-bold">{usage.total_queries}</div>
+                          <div className="text-xs text-muted-foreground">Queries</div>
+                        </div>
+                        <div className="rounded bg-muted/50 py-2">
+                          <div className="text-xs font-medium pt-1">
+                            {usage.last_access
+                              ? new Date(usage.last_access).toLocaleDateString()
+                              : 'Never'}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Last access</div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
                 <Separator />
 
                 <div className="flex flex-wrap gap-2">
@@ -569,6 +599,10 @@ function CorpusCard({
                   <Button variant="outline" size="sm" onClick={onCreateVersion}>
                     <History className="mr-2 h-4 w-4" />
                     Create Version
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setShowUsage((v) => !v)}>
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    {showUsage ? 'Hide Usage' : 'View Usage'}
                   </Button>
                   <Button
                     variant="outline"

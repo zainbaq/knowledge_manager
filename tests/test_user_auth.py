@@ -32,14 +32,14 @@ def test_login_returns_new_api_key(setup_test_db):
 
     # Register user
     resp = client.post(
-        "/api/user/register",
+        "/api/v1/user/register",
         json={"username": "alice", "password": "Str0ngPass!23"},
     )
     assert resp.status_code == 200
 
     # Login should return a new key
     resp = client.post(
-        "/api/user/login",
+        "/api/v1/user/login",
         json={"username": "alice", "password": "Str0ngPass!23"},
     )
     assert resp.status_code == 200
@@ -63,13 +63,13 @@ def test_create_api_key_generates_unique_keys(setup_test_db):
 
     client = TestClient(app)
     password = "B3tterPass!42"
-    client.post("/api/user/register", json={"username": "bob", "password": password})
+    client.post("/api/v1/user/register", json={"username": "bob", "password": password})
 
     resp1 = client.post(
-        "/api/user/create-api-key", json={"username": "bob", "password": password}
+        "/api/v1/user/create-api-key", json={"username": "bob", "password": password}
     )
     resp2 = client.post(
-        "/api/user/create-api-key", json={"username": "bob", "password": password}
+        "/api/v1/user/create-api-key", json={"username": "bob", "password": password}
     )
 
     key1 = resp1.json()["api_key"]
@@ -88,8 +88,20 @@ def test_register_enforces_password_policy(setup_test_db):
     db_path = setup_test_db
 
     client = TestClient(app)
+
+    # Below the model's own min_length: rejected by request validation (422)
+    # before the policy check runs. The removed legacy route had no request
+    # model, so this used to surface as the policy's own 400.
     resp = client.post(
-        "/api/user/register", json={"username": "weak", "password": "short"}
+        "/api/v1/user/register", json={"username": "weak", "password": "short"}
+    )
+    assert resp.status_code == 422
+    assert "password" in str(resp.json()["detail"]).lower()
+
+    # Long enough to pass the model, but still failing the complexity policy.
+    resp = client.post(
+        "/api/v1/user/register",
+        json={"username": "weak", "password": "alllowercaseletters"},
     )
     assert resp.status_code == 400
     assert "Password" in resp.json()["detail"]
@@ -100,9 +112,9 @@ def test_expired_api_keys_are_rejected(setup_test_db):
 
     client = TestClient(app)
     password = "ValidPass!45"
-    client.post("/api/user/register", json={"username": "carol", "password": password})
+    client.post("/api/v1/user/register", json={"username": "carol", "password": password})
     resp = client.post(
-        "/api/user/login", json={"username": "carol", "password": password}
+        "/api/v1/user/login", json={"username": "carol", "password": password}
     )
     api_key = resp.json()["api_key"]
 

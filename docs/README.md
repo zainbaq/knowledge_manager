@@ -90,7 +90,7 @@ Guide for integrating AI agents with Knowledge Manager via the Model Context Pro
 
 1. Start with the **[Main README](../README.md)** for installation
 2. Follow the setup instructions to get the server running
-3. Use the Streamlit UI for basic operations
+3. Use the web UI for basic operations
 4. Check **[API Reference](API_REFERENCE.md)** for programmatic access
 
 ### For AI Integration

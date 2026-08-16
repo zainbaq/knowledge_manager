@@ -56,3 +56,28 @@ def test_db(tmp_path, monkeypatch):
     users.init_db()
 
     yield db_path
+
+
+@pytest.fixture
+def register_api_user(client, test_db):
+    """Register users through the public API, returning each one's API key.
+
+    Returns a callable so a test can create as many distinct users as it needs
+    (permission checks are only meaningful with at least two).
+    """
+
+    def _register(username: str, password: str = "T3stPassw0rd!") -> str:
+        response = client.post(
+            "/api/v1/user/register",
+            json={"username": username, "password": password},
+        )
+        assert response.status_code == 200, response.text
+        return response.json()["api_key"]
+
+    return _register
+
+
+@pytest.fixture
+def api_key(register_api_user):
+    """API key for a single freshly registered user."""
+    yield register_api_user("alice")

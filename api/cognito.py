@@ -8,7 +8,12 @@ import json
 from jose import jwt, JWTError
 from cachetools import TTLCache
 
-from config import COGNITO_USER_POOL_ID, COGNITO_REGION, COGNITO_CLIENT_ID, COGNITO_ENABLED
+from config import (
+    COGNITO_USER_POOL_ID,
+    COGNITO_REGION,
+    COGNITO_ENABLED,
+    COGNITO_TRUSTED_CLIENT_IDS,
+)
 from logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -87,15 +92,19 @@ def verify_cognito_token(token: str) -> Optional[dict]:
         if not signing_key:
             return None
 
-        # Verify the token
+        # Verify the token. Audience is deliberately NOT checked here - jose's
+        # verify_aud only accepts one fixed value, but this API trusts a SET of
+        # app clients (see COGNITO_TRUSTED_CLIENT_IDS). It is instead checked
+        # explicitly below, against every trusted client, once we know which
+        # claim actually carries it for this token type.
         claims = jwt.decode(
             token,
             signing_key,
             algorithms=["RS256"],
-            audience=COGNITO_CLIENT_ID,
             issuer=_get_issuer(),
             options={
                 "verify_at_hash": False,  # Access tokens don't have at_hash
+                "verify_aud": False,
             }
         )
 
@@ -109,6 +118,28 @@ def verify_cognito_token(token: str) -> Optional[dict]:
         if token_use not in ("access", "id"):
             logger.warning(f"Invalid token_use: {token_use}")
             return None
+
+        # Bind the token to a TRUSTED app client.
+        #
+        # Cognito puts the client id in `aud` on ID tokens but in `client_id` on
+        # access tokens. Left unchecked, any access token issued for ANY client
+        # on the shared pool would authenticate here, since access tokens carry
+        # no `aud` at all and jose's own audience check (disabled above anyway)
+        # only ever supports one fixed value. COGNITO_TRUSTED_CLIENT_IDS always
+        # includes this app's own client; other apps must be added explicitly
+        # (e.g. Promethean AI's client, once it forwards its users' tokens here
+        # instead of doing a separate KM login) - trust is opt-in per client,
+        # never implied by "same pool".
+        if COGNITO_TRUSTED_CLIENT_IDS:
+            presented_client = (
+                claims.get("client_id") if token_use == "access" else claims.get("aud")
+            )
+            if presented_client not in COGNITO_TRUSTED_CLIENT_IDS:
+                logger.warning(
+                    "Token was issued for an untrusted app client "
+                    f"({presented_client!r}), rejecting"
+                )
+                return None
 
         logger.debug(f"Token verified for user: {claims.get('sub')}")
         return claims

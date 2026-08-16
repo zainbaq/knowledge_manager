@@ -12,7 +12,6 @@ import {
   FolderOpen,
   Library,
   Settings2,
-  Shield,
   BookOpen,
   User,
   ChevronLeft,
@@ -26,7 +25,6 @@ export const navigation = [
   { name: 'Indexes', href: '/indexes', icon: FolderOpen },
   { name: 'Corpuses', href: '/corpuses', icon: Library },
   { name: 'Manage Corpuses', href: '/corpuses/manage', icon: Settings2 },
-  { name: 'Admin', href: '/admin', icon: Shield },
   { name: 'Docs', href: '/docs', icon: BookOpen },
   { name: 'Account', href: '/account', icon: User },
 ];

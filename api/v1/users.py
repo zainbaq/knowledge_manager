@@ -14,7 +14,8 @@ from api.users import (
     revoke_api_key_for_user,
 )
 from api.auth import get_current_user
-from config import AUTH_RATE_LIMIT
+from api.usage_tracking import get_user_usage_stats
+from config import AUTH_RATE_LIMIT, MANAGEMENT_RATE_LIMIT
 from api.rate_limiting import limiter
 from ..models.requests import UserCredentials
 from ..models.responses import AuthResponse
@@ -128,6 +129,25 @@ async def create_api_key_authenticated(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/usage")
+@limiter.limit(MANAGEMENT_RATE_LIMIT)
+async def get_my_usage(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    """Get usage statistics for the authenticated user, across all corpuses.
+
+    Always scoped to the caller's own id - there is no path parameter, so
+    there is nothing to authorize beyond "is this user logged in".
+    """
+    stats = get_user_usage_stats(current_user["id"])
+    return {
+        "user_id": current_user["id"],
+        "username": current_user["username"],
+        **stats,
+    }
 
 
 @router.delete("/api-keys/{key_id}", response_model=MessageResponse)

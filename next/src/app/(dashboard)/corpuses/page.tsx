@@ -11,7 +11,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -29,7 +28,6 @@ import {
   Lock,
   Key,
   CheckCircle,
-  Clock,
   Loader2,
   MessageSquare,
 } from 'lucide-react';
@@ -40,7 +38,6 @@ export default function BrowseCorpusesPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [approvedOnly, setApprovedOnly] = useState(true);
   const [queryDialog, setQueryDialog] = useState<{ open: boolean; corpus: Corpus | null }>({
     open: false,
     corpus: null,
@@ -99,8 +96,7 @@ export default function BrowseCorpusesPage() {
       corpus.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       corpus.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || corpus.category === categoryFilter;
-    const matchesApproval = !approvedOnly || corpus.is_approved;
-    return matchesSearch && matchesCategory && matchesApproval;
+    return matchesSearch && matchesCategory;
   });
 
   const handleQuery = () => {
@@ -129,7 +125,7 @@ export default function BrowseCorpusesPage() {
         </Badge>
       );
     }
-    if (corpus.is_public && corpus.is_approved) {
+    if (corpus.is_public) {
       return (
         <Badge variant="secondary">
           <Globe className="mr-1 h-3 w-3" />
@@ -146,7 +142,7 @@ export default function BrowseCorpusesPage() {
   };
 
   const hasAccess = (corpus: Corpus) =>
-    corpus.is_owner || corpus.user_permission || (corpus.is_public && corpus.is_approved);
+    corpus.is_owner || corpus.user_permission || corpus.is_public;
 
   return (
     <div className="space-y-6">
@@ -189,14 +185,6 @@ export default function BrowseCorpusesPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="approvedOnly"
-                  checked={approvedOnly}
-                  onCheckedChange={(checked) => setApprovedOnly(checked as boolean)}
-                />
-                <Label htmlFor="approvedOnly">Approved only</Label>
-              </div>
             </div>
           </div>
         </CardContent>
@@ -247,17 +235,6 @@ export default function BrowseCorpusesPage() {
                   )}
                   <Badge variant="secondary">{corpus.num_chunks} chunks</Badge>
                   <Badge variant="secondary">{corpus.num_files} files</Badge>
-                  {corpus.is_approved ? (
-                    <Badge variant="default" className="bg-green-600">
-                      <CheckCircle className="mr-1 h-3 w-3" />
-                      Approved
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline">
-                      <Clock className="mr-1 h-3 w-3" />
-                      Pending
-                    </Badge>
-                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -287,7 +264,7 @@ export default function BrowseCorpusesPage() {
                         </Button>
                       )}
                     </>
-                  ) : corpus.is_public && corpus.is_approved ? (
+                  ) : corpus.is_public ? (
                     <Button
                       variant="default"
                       size="sm"
@@ -316,7 +293,7 @@ export default function BrowseCorpusesPage() {
             <Library className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">No corpuses found</h3>
             <p className="text-muted-foreground">
-              {searchQuery || categoryFilter !== 'all' || approvedOnly
+              {searchQuery || categoryFilter !== 'all'
                 ? 'Try adjusting your filters.'
                 : 'No corpuses are available yet.'}
             </p>

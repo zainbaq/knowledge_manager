@@ -29,7 +29,7 @@ from api.models.corpus_responses import (
     SubscriptionResponse,
 )
 from api.models.responses import QueryResponse
-from api.usage_tracking import log_corpus_usage
+from api.usage_tracking import get_corpus_usage_stats, log_corpus_usage
 from api.rate_limiting import limiter
 from api.validation import validate_collection_name, validate_username
 from config import MANAGEMENT_RATE_LIMIT, QUERY_RATE_LIMIT
@@ -55,8 +55,9 @@ async def create_corpus(
 ) -> CreateCorpusResponse:
     """Create a new corpus.
 
-    Only authenticated users can create corpuses.
-    New corpuses require admin approval before being publicly accessible.
+    Only authenticated users can create corpuses. A corpus is visible to other
+    users as soon as its owner marks it public - there is no separate approval
+    step.
     """
     # Validate corpus name using same validation as collection names
     corpus_name = validate_collection_name(corpus_request.name)
@@ -81,7 +82,8 @@ async def create_corpus(
                 corpus_request.category,
                 1,  # Initial version
                 corpus_request.is_public,
-                False,  # Requires admin approval
+                # is_approved always mirrors is_public - see api/corpus_auth.py.
+                corpus_request.is_public,
                 current_user["id"],
                 timestamp,
                 timestamp,
@@ -119,14 +121,8 @@ async def create_corpus(
             f"Created corpus {corpus_id} ({corpus_name}) by user {current_user['username']}"
         )
 
-        approval_msg = (
-            "Awaiting admin approval."
-            if corpus_request.is_public
-            else "Corpus created successfully."
-        )
-
         return CreateCorpusResponse(
-            message=f"Corpus '{corpus_request.display_name}' created successfully. {approval_msg}",
+            message=f"Corpus '{corpus_request.display_name}' created successfully.",
             corpus_id=corpus_id,
             corpus_name=corpus_name,
         )
@@ -341,6 +337,9 @@ async def update_corpus(
 
     if update_request.is_public is not None:
         updates.append("is_public = ?")
+        params.append(update_request.is_public)
+        # Keep is_approved in lockstep with is_public - see api/corpus_auth.py.
+        updates.append("is_approved = ?")
         params.append(update_request.is_public)
 
     updates.append("updated_at = ?")
@@ -558,14 +557,14 @@ async def subscribe_to_corpus(
 ) -> SubscriptionResponse:
     """Subscribe to a corpus.
 
-    Creates a subscription record and grants read permission.
-    Corpus must be approved by admin to subscribe.
+    Creates a subscription record and grants read permission. Only public
+    corpuses can be subscribed to.
     """
     conn = _get_conn()
 
-    # Check corpus exists and is approved
+    # Check corpus exists and is public
     cur = conn.execute(
-        "SELECT id, is_approved, name FROM corpuses WHERE id = ?",
+        "SELECT id, is_public, name FROM corpuses WHERE id = ?",
         (corpus_id,),
     )
     corpus_row = cur.fetchone()
@@ -581,7 +580,7 @@ async def subscribe_to_corpus(
         conn.close()
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cannot subscribe to unapproved corpus. Please wait for admin approval.",
+            detail="This corpus is private. Ask the owner to grant you access directly.",
         )
 
     timestamp = _current_timestamp()
@@ -768,6 +767,42 @@ async def query_corpus(
         )
 
 
+@router.get("/{corpus_id}/usage")
+@limiter.limit(MANAGEMENT_RATE_LIMIT)
+async def get_corpus_usage(
+    request: Request,
+    corpus_id: int,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    """Get usage statistics for a corpus.
+
+    Requires: admin permission on this specific corpus (owner, or a user the
+    owner has granted "admin" tier to). This is per-corpus RBAC, not the
+    removed global admin role - any corpus owner can grant it to their own
+    collaborators via POST /{corpus_id}/permissions.
+    """
+    check_corpus_permission(corpus_id, current_user["id"], "admin")
+
+    conn = _get_conn()
+    cur = conn.execute("SELECT name FROM corpuses WHERE id = ?", (corpus_id,))
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Corpus {corpus_id} not found",
+        )
+
+    stats = get_corpus_usage_stats(corpus_id)
+
+    logger.debug(
+        f"User {current_user['username']} retrieved usage stats for corpus {corpus_id}"
+    )
+
+    return {"corpus_id": corpus_id, "corpus_name": row[0], **stats}
+
+
 @router.post("/{corpus_id}/versions", response_model=CorpusVersionInfo)
 @limiter.limit(MANAGEMENT_RATE_LIMIT)
 async def create_corpus_version(
@@ -869,10 +904,9 @@ async def create_corpus_version(
         )
 
         return CorpusVersionInfo(
-            corpus_id=corpus_id,
             version=new_version,
             description=version_request.description,
-            created_by_username=current_user["username"],
+            created_by=current_user["username"],
             created_at=_current_timestamp(),
             chunk_count=chunk_count,
             file_count=file_count,
@@ -923,8 +957,8 @@ async def list_corpus_versions(
         cur = conn.execute(
             """
             SELECT
-                cv.corpus_id, cv.version, cv.description, cv.created_at,
-                cv.chunk_count, cv.file_count, u.username
+                cv.version, cv.description, u.username, cv.created_at,
+                cv.chunk_count, cv.file_count
             FROM corpus_versions cv
             JOIN users u ON cv.created_by = u.id
             WHERE cv.corpus_id = ?
@@ -937,13 +971,12 @@ async def list_corpus_versions(
         for row in cur.fetchall():
             versions.append(
                 CorpusVersionInfo(
-                    corpus_id=row[0],
-                    version=row[1],
-                    description=row[2],
+                    version=row[0],
+                    description=row[1],
+                    created_by=row[2],
                     created_at=row[3],
                     chunk_count=row[4],
                     file_count=row[5],
-                    created_by_username=row[6],
                 )
             )
 

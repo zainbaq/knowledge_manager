@@ -466,8 +466,6 @@ Example: `auth.invalid_api_key`, `validation.empty_query`
    - `auth.invalid_api_key` - Invalid API key
    - `auth.expired_api_key` - API key expired
    - `auth.insufficient_permissions` - User lacks permission
-   - `auth.corpus_not_approved` - Corpus not approved
-   - `auth.admin_required` - Admin access required
 
 2. **Validation Errors** (`validation.*`) - Fix parameters and retry
    - `validation.invalid_collection_name` - Invalid collection name

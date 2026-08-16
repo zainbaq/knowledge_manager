@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,10 +10,14 @@ import { Copy, Check, ExternalLink, Code, Book, Key, ShieldCheck } from 'lucide-
 import { toast } from 'sonner';
 import Link from 'next/link';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// These snippets are for EXTERNAL callers (scripts, other services), which need
+// an absolute URL - unlike this app's own requests, which go same-origin through
+// the /api rewrite. Taken from the browser's own origin at runtime so the
+// examples are correct in every environment without a build-time env var.
+const FALLBACK_API_URL = 'http://localhost:8501';
 
 // API Key examples (for external/script usage)
-const pythonApiKeyExample = `import requests
+const buildPythonApiKeyExample = (API_URL: string) => `import requests
 
 # Configuration
 API_URL = "${API_URL}"
@@ -51,7 +55,7 @@ completion = client.chat.completions.create(
 
 print(completion.choices[0].message.content)`;
 
-const curlApiKeyExample = `# Query your knowledge base
+const buildCurlApiKeyExample = (API_URL: string) => `# Query your knowledge base
 curl -X POST "${API_URL}/api/v1/query/" \\
   -H "X-API-Key: YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
@@ -75,7 +79,7 @@ curl -X GET "${API_URL}/api/v1/list-indexes/" \\
 curl -X DELETE "${API_URL}/api/v1/delete-index/my_documents" \\
   -H "X-API-Key: YOUR_API_KEY"`;
 
-const jsApiKeyExample = `// API Client for Knowledge Manager
+const buildJsApiKeyExample = (API_URL: string) => `// API Client for Knowledge Manager
 const API_URL = "${API_URL}";
 const API_KEY = "your-api-key-here"; // Get from Account > API Keys
 
@@ -114,6 +118,17 @@ console.log(context);`;
 
 export default function DocsPage() {
   const [copiedTab, setCopiedTab] = useState<string | null>(null);
+  // Resolved after mount rather than during render: window is undefined while
+  // prerendering, and differing server/client values would trip hydration.
+  const [apiUrl, setApiUrl] = useState(FALLBACK_API_URL);
+
+  useEffect(() => {
+    setApiUrl(window.location.origin);
+  }, []);
+
+  const pythonApiKeyExample = buildPythonApiKeyExample(apiUrl);
+  const curlApiKeyExample = buildCurlApiKeyExample(apiUrl);
+  const jsApiKeyExample = buildJsApiKeyExample(apiUrl);
 
   const copyToClipboard = async (text: string, tab: string) => {
     await navigator.clipboard.writeText(text);
@@ -190,14 +205,14 @@ export default function DocsPage() {
         </CardHeader>
         <CardContent className="flex gap-4">
           <Button asChild>
-            <a href={`${API_URL}/docs`} target="_blank" rel="noopener noreferrer">
+            <a href={`${apiUrl}/api/docs`} target="_blank" rel="noopener noreferrer">
               <Book className="mr-2 h-4 w-4" />
               Swagger UI
               <ExternalLink className="ml-2 h-4 w-4" />
             </a>
           </Button>
           <Button variant="outline" asChild>
-            <a href={`${API_URL}/redoc`} target="_blank" rel="noopener noreferrer">
+            <a href={`${apiUrl}/api/redoc`} target="_blank" rel="noopener noreferrer">
               <Code className="mr-2 h-4 w-4" />
               ReDoc
               <ExternalLink className="ml-2 h-4 w-4" />

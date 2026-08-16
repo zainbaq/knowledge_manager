@@ -29,12 +29,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { User, Mail, Shield, Moon, Sun, Monitor, Key, Plus, Copy, Check, Trash2, AlertTriangle } from 'lucide-react';
+import { User, Mail, Shield, Moon, Sun, Monitor, Key, Plus, Copy, Check, Trash2, AlertTriangle, BarChart3 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userApi } from '@/lib/api/client';
 import { toast } from 'sonner';
-import type { ApiKeyInfo } from '@/types/api';
+import type { ApiKeyInfo, UsageStats } from '@/types/api';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AccountPage() {
   const { user, isAuthenticated } = useAuth();
@@ -175,6 +176,9 @@ export default function AccountPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Usage Card */}
+      {isAuthenticated && <UsageCard />}
 
       {/* API Keys Card */}
       {isAuthenticated && (
@@ -415,5 +419,46 @@ export default function AccountPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function UsageCard() {
+  const { data: usage, isLoading } = useQuery<UsageStats>({
+    queryKey: ['my-usage'],
+    queryFn: () => userApi.getMyUsage(),
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5" />
+          My Usage
+        </CardTitle>
+        <CardDescription>Your activity across all corpuses.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-16 w-full" />
+        ) : usage ? (
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-md bg-muted/50 py-3 text-center">
+              <div className="text-2xl font-bold">{usage.total_queries}</div>
+              <div className="text-xs text-muted-foreground">Total Queries</div>
+            </div>
+            <div className="rounded-md bg-muted/50 py-3 text-center">
+              <div className="text-sm font-medium pt-1">
+                {usage.last_access
+                  ? new Date(usage.last_access).toLocaleDateString()
+                  : 'Never'}
+              </div>
+              <div className="text-xs text-muted-foreground">Last Access</div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No usage data yet.</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

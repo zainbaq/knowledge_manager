@@ -6,9 +6,13 @@ import 'aws-amplify/auth/enable-oauth-listener';
 const rawDomain = process.env.NEXT_PUBLIC_COGNITO_DOMAIN || '';
 const domain = rawDomain.replace(/^https?:\/\//, '');
 
-// Get redirect URLs - ensure they match exactly what's in Cognito
-const redirectSignIn = process.env.NEXT_PUBLIC_REDIRECT_SIGN_IN || 'http://localhost:3000/auth/callback';
-const redirectSignOut = process.env.NEXT_PUBLIC_REDIRECT_SIGN_OUT || 'http://localhost:3000';
+// Redirect URLs. Amplify sends these verbatim as the OAuth `redirect_uri` and
+// `logout_uri`, and Cognito compares them byte-for-byte against the app client's
+// allowed callback / sign-out URLs - scheme, port and trailing slash included.
+// A mismatch fails on Cognito's own error page, not in this app.
+// The fallbacks match the published dev port in docker-compose.yml.
+const redirectSignIn = process.env.NEXT_PUBLIC_REDIRECT_SIGN_IN || 'http://localhost:8511/auth/callback';
+const redirectSignOut = process.env.NEXT_PUBLIC_REDIRECT_SIGN_OUT || 'http://localhost:8511';
 
 const authConfig: ResourcesConfig = {
   Auth: {

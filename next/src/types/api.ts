@@ -85,6 +85,8 @@ export interface Corpus {
   description?: string;
   category?: string;
   is_public: boolean;
+  // Always equal to is_public - there is no separate moderation step. Kept in
+  // the API response for schema stability; the UI reads is_public instead.
   is_approved: boolean;
   owner_id: number;
   owner_username?: string;
@@ -134,17 +136,8 @@ export interface ListCorpusesResponse {
   corpuses: Corpus[];
 }
 
-// Admin
-export interface PendingCorpus {
-  id: number;
-  name: string;
-  display_name: string;
-  description?: string;
-  category?: string;
-  owner_username: string;
-  version: number;
-}
-
+// Usage - self-service (GET /user/usage) or per-corpus (GET /corpus/{id}/usage,
+// requires admin-tier permission on that specific corpus).
 export interface UsageStats {
   unique_users?: number;
   total_actions: number;

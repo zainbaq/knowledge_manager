@@ -6,46 +6,45 @@ from pathlib import Path
 from typing import AsyncGenerator, Dict, Optional
 
 import chromadb
-from config import VECTOR_DB_PATH
+from config import USER_STORE_PREFIX, VECTOR_DB_PATH
 
 # Thread-safe client cache to avoid recreating clients for the same db_path
 _client_cache: Dict[str, chromadb.PersistentClient] = {}
 _cache_lock = threading.Lock()
 
 
-def get_user_db_path(username: str) -> str:
-    """Construct safe user database path with validation.
+def get_user_db_path(user_id: int) -> str:
+    """Construct the safe storage path for a user's private vector store.
 
-    SECURITY: This function prevents path traversal attacks by:
-    1. Sanitizing the username (removing .., /, etc)
-    2. Using Path.resolve() to get absolute path
-    3. Verifying the result is still under VECTOR_DB_PATH
+    Keyed on the internal ``users.id``, NOT the username. Username-keyed paths
+    were unsafe: the old sanitiser stripped every "." from the name, so
+    "zain.baq@gmail.com" and "zainbaq@gmailcom" resolved to one shared
+    directory - two distinct accounts reading and deleting each other's
+    documents. An integer ID cannot collide, contains no path separators, and
+    survives a username change.
 
     Args:
-        username: Username (should already be validated by validate_username)
+        user_id: Internal ``users.id`` primary key (positive integer)
 
     Returns:
-        str: Safe absolute path to user's database directory
+        str: Safe absolute path to the user's database directory
 
     Raises:
-        ValueError: If path traversal is detected
+        ValueError: If user_id is invalid or path traversal is detected
     """
-    from api.validation import sanitize_path_component
+    # An int has no path semantics, but reject bools (bool is a subclass of int)
+    # and non-positive values so a caller can never pass something surprising.
+    if isinstance(user_id, bool) or not isinstance(user_id, int) or user_id < 1:
+        raise ValueError(f"Invalid user_id: {user_id!r}")
 
-    # Defense in depth: sanitize even though username should be validated
-    safe_username = sanitize_path_component(username)
-
-    # Construct path using pathlib for safety
     base_path = Path(VECTOR_DB_PATH).resolve()
-    user_path = (base_path / safe_username).resolve()
+    user_path = (base_path / USER_STORE_PREFIX / str(user_id)).resolve()
 
-    # CRITICAL: Verify the resolved path is still under base_path
-    # This prevents path traversal attacks like username="../../etc"
+    # Defense in depth: verify the resolved path is still under base_path
     try:
         user_path.relative_to(base_path)
     except ValueError:
-        # Path is outside base_path - SECURITY VIOLATION
-        raise ValueError(f"Invalid path for username: {username}")
+        raise ValueError(f"Invalid path for user_id: {user_id}")
 
     return str(user_path)
 

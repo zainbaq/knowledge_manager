@@ -52,16 +52,13 @@ def check_corpus_permission(
         conn.close()
         return True
 
-    # Check if corpus requires approval
-    if not is_approved and required_permission != "owner":
-        conn.close()
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Corpus not yet approved by admin"
-        )
-
-    # Public approved corpuses allow read access to all
-    if is_public and is_approved and required_permission == "read":
+    # Public corpuses allow read access to all authenticated users.
+    #
+    # There is no separate moderation/approval step - the owner's own is_public
+    # flag is the single source of truth for visibility. (The is_approved column
+    # is kept for schema stability and is always set equal to is_public by the
+    # API layer; it is intentionally not consulted here.)
+    if is_public and required_permission == "read":
         conn.close()
         return True
 

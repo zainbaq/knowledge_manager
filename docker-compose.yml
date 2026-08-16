@@ -1,0 +1,99 @@
+# Knowledge Manager - local/standalone stack.
+#
+# Container-internal ports match the other Promethean apps (backend 8000,
+# frontend 8501) so one Traefik label set and one compose template covers every
+# service. Published host ports are offset per app (8010/8511 here, 8000/8501
+# for the data agent) so several apps can run locally at once. On the
+# consolidated host nothing is published at all - Traefik reaches the containers
+# over the Docker network.
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8010:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      # State lives on the mounted volumes, NOT inside the project directory
+      # (which is what the code defaults to).
+      - VECTOR_DB_PATH=/app/data/vector_index
+      - USER_DB_PATH=/app/data/db/users.db
+      - PORT=8000
+      - API_HOST=0.0.0.0
+      # Frontend calls are same-origin via the Next rewrite, so this only needs
+      # to name genuine external browser callers.
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID:-}
+      - COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID:-}
+      - COGNITO_REGION=${COGNITO_REGION:-us-east-2}
+      # Other apps' Cognito client IDs trusted to call this API on behalf of
+      # their own users. This app's own COGNITO_CLIENT_ID is always trusted
+      # regardless of this value - see api/cognito.py.
+      - COGNITO_TRUSTED_CLIENT_IDS=${COGNITO_TRUSTED_CLIENT_IDS:-}
+      - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-100}
+      - EMBEDDING_CONCURRENCY=${EMBEDDING_CONCURRENCY:-10}
+    volumes:
+      - vector_index:/app/data/vector_index
+      - user_db:/app/data/db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: ./next
+      dockerfile: Dockerfile
+      args:
+        # Consumed by next.config.ts's rewrites(), which Next evaluates at build
+        # time - runtime env alone is not enough (see next/Dockerfile).
+        - BACKEND_URL=http://backend:8000
+        # NEXT_PUBLIC_* values are inlined into the bundle at build time - they
+        # must be build args, not just runtime env, or Amplify ships unconfigured.
+        - NEXT_PUBLIC_COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID:-}
+        - NEXT_PUBLIC_COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID:-}
+        - NEXT_PUBLIC_COGNITO_DOMAIN=${COGNITO_DOMAIN:-}
+        - NEXT_PUBLIC_REDIRECT_SIGN_IN=${NEXT_PUBLIC_REDIRECT_SIGN_IN:-http://localhost:8511/auth/callback}
+        - NEXT_PUBLIC_REDIRECT_SIGN_OUT=${NEXT_PUBLIC_REDIRECT_SIGN_OUT:-http://localhost:8511}
+    ports:
+      - "8511:8501"
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - NODE_ENV=production
+      - PORT=8501
+      # Also supplied at runtime for the dev-stage override: `next dev` reads
+      # process.env live, unlike a production build which needs the args above.
+      - NEXT_PUBLIC_COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID:-}
+      - NEXT_PUBLIC_COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID:-}
+      - NEXT_PUBLIC_COGNITO_DOMAIN=${COGNITO_DOMAIN:-}
+      - NEXT_PUBLIC_REDIRECT_SIGN_IN=${NEXT_PUBLIC_REDIRECT_SIGN_IN:-http://localhost:8511/auth/callback}
+      - NEXT_PUBLIC_REDIRECT_SIGN_OUT=${NEXT_PUBLIC_REDIRECT_SIGN_OUT:-http://localhost:8511}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  vector_index:
+  user_db:

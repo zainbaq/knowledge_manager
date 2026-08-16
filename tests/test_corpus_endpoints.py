@@ -1,298 +1,437 @@
-"""Test script for corpus management endpoints."""
+"""Tests for the corpus management endpoints and the corpus RBAC layer.
 
-import requests
-import json
-from typing import Optional
+These drive api/corpus_auth.py through the HTTP surface in api/v1/corpus.py,
+which is how its ownership and permission-hierarchy checks are actually reached.
 
-# Configuration
-BASE_URL = "http://localhost:8000"
-API_V1 = f"{BASE_URL}/api/v1"
+There is no moderation/approval step: a corpus's own is_public flag is the
+single source of truth for visibility, set directly by its owner. is_approved
+is always kept equal to is_public by the API layer (see api/v1/corpus.py) and
+is not exercised as an independent axis here.
+"""
 
-# Test users
-TEST_USER_1 = {"username": "alice_corpus_test", "password": "TestPassword123!"}
-TEST_USER_2 = {"username": "bob_corpus_test", "password": "TestPassword123!"}
+import pytest
 
-
-def print_section(title: str):
-    """Print a formatted section header."""
-    print(f"\n{'='*60}")
-    print(f"  {title}")
-    print(f"{'='*60}\n")
+from api import corpus_db
+from vector_store import vector_index
 
 
-def register_user(username: str, password: str) -> Optional[str]:
-    """Register a user and return API key."""
-    print(f"Registering user: {username}")
-    response = requests.post(
-        f"{API_V1}/user/register",
-        json={"username": username, "password": password}
+CORPUS_PAYLOAD = {
+    "name": "legal_corpus",
+    "display_name": "Legal Corpus",
+    "description": "A corpus of legal documents",
+    "category": "legal",
+    "is_public": True,
+}
+
+
+@pytest.fixture(autouse=True)
+def corpus_test_env(test_db, tmp_path, monkeypatch):
+    """Point the corpus tables and the vector store at per-test temp locations.
+
+    conftest's test_db only repoints api.users.DB_PATH. api.corpus_db keeps its
+    own module-level DB_PATH, and vector_store.vector_index binds VECTOR_DB_PATH
+    at import time, so without these two a corpus row and its on-disk directory
+    land in the developer's real database instead of the temp one.
+    """
+    monkeypatch.setattr(corpus_db, "DB_PATH", str(test_db))
+    monkeypatch.setattr(vector_index, "VECTOR_DB_PATH", str(tmp_path / "vectors"))
+    yield
+
+
+@pytest.fixture
+def other_key(register_api_user):
+    """API key for a second user, so permission checks have someone to deny."""
+    return register_api_user("bob")
+
+
+def auth(api_key: str) -> dict:
+    return {"X-API-Key": api_key}
+
+
+def create_corpus(client, api_key: str, **overrides) -> int:
+    """Create a corpus and return its ID."""
+    payload = {**CORPUS_PAYLOAD, **overrides}
+    response = client.post("/api/v1/corpus/", json=payload, headers=auth(api_key))
+    assert response.status_code == 200, response.text
+    return response.json()["corpus_id"]
+
+
+def grant(client, api_key: str, corpus_id: int, username: str, permission: str):
+    return client.post(
+        f"/api/v1/corpus/{corpus_id}/permissions",
+        json={"username": username, "permission_type": permission},
+        headers=auth(api_key),
     )
 
-    if response.status_code == 200:
-        api_key = response.json()["api_key"]
-        print(f"✅ Registered successfully. API key: {api_key[:16]}...")
-        return api_key
-    elif response.status_code == 400 and "already exists" in response.json().get("detail", ""):
-        # User already exists, try to login
-        print(f"User already exists, logging in...")
-        response = requests.post(
-            f"{API_V1}/user/login",
-            json={"username": username, "password": password}
-        )
-        if response.status_code == 200:
-            api_key = response.json()["api_key"]
-            print(f"✅ Logged in successfully. API key: {api_key[:16]}...")
-            return api_key
 
-    print(f"❌ Failed: {response.status_code} - {response.json()}")
-    return None
+def corpus_ids(client, api_key: str) -> set:
+    response = client.get("/api/v1/corpus/", headers=auth(api_key))
+    assert response.status_code == 200, response.text
+    return {corpus["id"] for corpus in response.json()["corpuses"]}
 
 
-def test_create_corpus(api_key: str, corpus_data: dict) -> Optional[int]:
-    """Test creating a corpus."""
-    print(f"Creating corpus: {corpus_data['name']}")
-    headers = {"X-API-Key": api_key}
-    response = requests.post(f"{API_V1}/corpus/", json=corpus_data, headers=headers)
-
-    if response.status_code == 200:
-        result = response.json()
-        print(f"✅ Created successfully!")
-        print(f"   Corpus ID: {result['corpus_id']}")
-        print(f"   Message: {result['message']}")
-        return result['corpus_id']
-    else:
-        print(f"❌ Failed: {response.status_code} - {response.json()}")
-        return None
+# --- Create ---------------------------------------------------------------
 
 
-def test_list_corpuses(api_key: str):
-    """Test listing corpuses."""
-    print(f"Listing accessible corpuses...")
-    headers = {"X-API-Key": api_key}
-    response = requests.get(f"{API_V1}/corpus/", headers=headers)
+def test_create_corpus_returns_id_and_is_immediately_public(client, api_key):
+    """There is no moderation step: is_approved mirrors is_public on creation."""
+    response = client.post("/api/v1/corpus/", json=CORPUS_PAYLOAD, headers=auth(api_key))
 
-    if response.status_code == 200:
-        corpuses = response.json()["corpuses"]
-        print(f"✅ Found {len(corpuses)} corpus(es)")
-        for corpus in corpuses:
-            print(f"   - {corpus['display_name']} (ID: {corpus['id']}, Owner: {corpus['owner_username']}, Approved: {corpus['is_approved']})")
-        return corpuses
-    else:
-        print(f"❌ Failed: {response.status_code} - {response.json()}")
-        return []
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["corpus_id"] >= 1
+    assert body["corpus_name"] == "legal_corpus"
+
+    detail = client.get(f"/api/v1/corpus/{body['corpus_id']}", headers=auth(api_key))
+    assert detail.json()["corpus"]["is_approved"] is True
 
 
-def test_get_corpus_details(api_key: str, corpus_id: int):
-    """Test getting corpus details."""
-    print(f"Getting details for corpus {corpus_id}...")
-    headers = {"X-API-Key": api_key}
-    response = requests.get(f"{API_V1}/corpus/{corpus_id}", headers=headers)
+def test_create_private_corpus_is_not_approved_either(client, api_key):
+    """is_approved mirrors is_public in both directions, not just when public."""
+    corpus_id = create_corpus(client, api_key, is_public=False)
 
-    if response.status_code == 200:
-        data = response.json()
-        print(f"✅ Retrieved successfully!")
-        print(f"   Name: {data['corpus']['display_name']}")
-        print(f"   Version: {data['corpus']['version']}")
-        print(f"   User permission: {data['user_permission']}")
-        print(f"   Permissions: {len(data['permissions'])} user(s)")
-        print(f"   Versions: {len(data['versions'])} version(s)")
-        return data
-    else:
-        print(f"❌ Failed: {response.status_code} - {response.json()}")
-        return None
+    detail = client.get(f"/api/v1/corpus/{corpus_id}", headers=auth(api_key))
+    assert detail.json()["corpus"]["is_approved"] is False
 
 
-def test_update_corpus(api_key: str, corpus_id: int, updates: dict):
-    """Test updating corpus metadata."""
-    print(f"Updating corpus {corpus_id}...")
-    headers = {"X-API-Key": api_key}
-    response = requests.patch(f"{API_V1}/corpus/{corpus_id}", json=updates, headers=headers)
+def test_create_corpus_rejects_duplicate_name(client, api_key):
+    create_corpus(client, api_key)
 
-    if response.status_code == 200:
-        corpus = response.json()
-        print(f"✅ Updated successfully!")
-        print(f"   New display name: {corpus['display_name']}")
-        return corpus
-    else:
-        print(f"❌ Failed: {response.status_code} - {response.json()}")
-        return None
+    response = client.post("/api/v1/corpus/", json=CORPUS_PAYLOAD, headers=auth(api_key))
+
+    assert response.status_code == 409, response.text
 
 
-def test_grant_permission(api_key: str, corpus_id: int, username: str, permission_type: str):
-    """Test granting permission to a user."""
-    print(f"Granting {permission_type} permission to {username}...")
-    headers = {"X-API-Key": api_key}
-    response = requests.post(
-        f"{API_V1}/corpus/{corpus_id}/permissions",
-        json={"username": username, "permission_type": permission_type},
-        headers=headers
+def test_corpus_endpoints_reject_unauthenticated_requests(client):
+    assert client.post("/api/v1/corpus/", json=CORPUS_PAYLOAD).status_code == 401
+    assert client.get("/api/v1/corpus/").status_code == 401
+
+
+# --- List -----------------------------------------------------------------
+
+
+def test_list_corpuses_returns_own_corpus(client, api_key):
+    corpus_id = create_corpus(client, api_key)
+
+    response = client.get("/api/v1/corpus/", headers=auth(api_key))
+
+    assert response.status_code == 200, response.text
+    corpuses = response.json()["corpuses"]
+    assert [c["id"] for c in corpuses] == [corpus_id]
+    assert corpuses[0]["owner_username"] == "alice"
+    assert corpuses[0]["display_name"] == "Legal Corpus"
+
+
+def test_list_corpuses_hides_another_users_private_corpus(client, api_key, other_key):
+    corpus_id = create_corpus(client, api_key, is_public=False)
+
+    assert corpus_id not in corpus_ids(client, other_key)
+
+
+def test_list_corpuses_includes_public_corpus_immediately(client, api_key, other_key):
+    """Public corpuses need no separate approval to become visible."""
+    corpus_id = create_corpus(client, api_key)
+
+    assert corpus_id in corpus_ids(client, other_key)
+
+
+# --- Get details ----------------------------------------------------------
+
+
+def test_get_corpus_details_reports_owner_permission_and_initial_version(client, api_key):
+    corpus_id = create_corpus(client, api_key)
+
+    response = client.get(f"/api/v1/corpus/{corpus_id}", headers=auth(api_key))
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["corpus"]["id"] == corpus_id
+    assert body["user_permission"] == "owner"
+    assert [(p["username"], p["permission_type"]) for p in body["permissions"]] == [
+        ("alice", "owner")
+    ]
+    assert [v["version"] for v in body["versions"]] == [1]
+
+
+def test_get_unknown_corpus_returns_404(client, api_key):
+    response = client.get("/api/v1/corpus/999", headers=auth(api_key))
+
+    assert response.status_code == 404, response.text
+
+
+def test_stranger_cannot_read_a_private_corpus(client, api_key, other_key):
+    corpus_id = create_corpus(client, api_key, is_public=False)
+
+    response = client.get(f"/api/v1/corpus/{corpus_id}", headers=auth(other_key))
+
+    assert response.status_code == 403, response.text
+
+
+def test_public_corpus_is_readable_without_an_explicit_grant(client, api_key, other_key):
+    corpus_id = create_corpus(client, api_key)
+
+    response = client.get(f"/api/v1/corpus/{corpus_id}", headers=auth(other_key))
+
+    assert response.status_code == 200, response.text
+    assert response.json()["user_permission"] is None
+
+
+# --- Update ---------------------------------------------------------------
+
+
+def test_update_corpus_metadata_as_owner(client, api_key):
+    corpus_id = create_corpus(client, api_key)
+
+    response = client.patch(
+        f"/api/v1/corpus/{corpus_id}",
+        json={"display_name": "Renamed Corpus", "description": "Updated", "category": "law"},
+        headers=auth(api_key),
     )
 
-    if response.status_code == 200:
-        result = response.json()
-        print(f"✅ {result['message']}")
-        return True
-    else:
-        print(f"❌ Failed: {response.status_code} - {response.json()}")
-        return False
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["display_name"] == "Renamed Corpus"
+    assert body["description"] == "Updated"
+    assert body["category"] == "law"
+
+    persisted = client.get(f"/api/v1/corpus/{corpus_id}", headers=auth(api_key)).json()
+    assert persisted["corpus"]["display_name"] == "Renamed Corpus"
 
 
-def test_revoke_permission(api_key: str, corpus_id: int, username: str):
-    """Test revoking permission from a user."""
-    print(f"Revoking permission from {username}...")
-    headers = {"X-API-Key": api_key}
-    response = requests.delete(f"{API_V1}/corpus/{corpus_id}/permissions/{username}", headers=headers)
-
-    if response.status_code == 200:
-        result = response.json()
-        print(f"✅ {result['message']}")
-        return True
-    else:
-        print(f"❌ Failed: {response.status_code} - {response.json()}")
-        return False
+# --- Grant / revoke permission --------------------------------------------
 
 
-def test_delete_corpus(api_key: str, corpus_id: int):
-    """Test deleting a corpus."""
-    print(f"Deleting corpus {corpus_id}...")
-    headers = {"X-API-Key": api_key}
-    response = requests.delete(f"{API_V1}/corpus/{corpus_id}", headers=headers)
+def test_grant_read_permission_makes_corpus_visible_and_readable(client, api_key, other_key):
+    corpus_id = create_corpus(client, api_key, is_public=False)
 
-    if response.status_code == 200:
-        result = response.json()
-        print(f"✅ {result['message']}")
-        return True
-    else:
-        print(f"❌ Failed: {response.status_code} - {response.json()}")
-        return False
+    response = grant(client, api_key, corpus_id, "bob", "read")
 
+    assert response.status_code == 200, response.text
+    assert response.json()["permission_type"] == "read"
+    assert corpus_id in corpus_ids(client, other_key)
 
-def test_permission_denied(api_key: str, corpus_id: int, action: str):
-    """Test that permission is denied when expected."""
-    print(f"Testing permission denial for {action}...")
-    headers = {"X-API-Key": api_key}
-
-    if action == "update":
-        response = requests.patch(f"{API_V1}/corpus/{corpus_id}", json={"description": "unauthorized"}, headers=headers)
-    elif action == "delete":
-        response = requests.delete(f"{API_V1}/corpus/{corpus_id}", headers=headers)
-    else:
-        print(f"Unknown action: {action}")
-        return False
-
-    if response.status_code == 403:
-        print(f"✅ Permission correctly denied (403)")
-        return True
-    else:
-        print(f"❌ Expected 403, got {response.status_code}")
-        return False
+    detail = client.get(f"/api/v1/corpus/{corpus_id}", headers=auth(other_key))
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["user_permission"] == "read"
 
 
-def main():
-    """Run all corpus endpoint tests."""
-    print_section("CORPUS ENDPOINT TESTING")
+def test_grant_permission_overwrites_an_existing_grant(client, api_key, other_key):
+    corpus_id = create_corpus(client, api_key, is_public=False)
 
-    # Register test users
-    print_section("1. User Registration")
-    api_key_1 = register_user(TEST_USER_1["username"], TEST_USER_1["password"])
-    api_key_2 = register_user(TEST_USER_2["username"], TEST_USER_2["password"])
+    assert grant(client, api_key, corpus_id, "bob", "read").status_code == 200
+    assert grant(client, api_key, corpus_id, "bob", "admin").status_code == 200
 
-    if not api_key_1 or not api_key_2:
-        print("\n❌ Failed to register users. Exiting.")
-        return
-
-    # Test 1: Create corpus as User 1
-    print_section("2. Create Corpus (User 1)")
-    corpus_data = {
-        "name": "test_legal_corpus",
-        "display_name": "Test Legal Corpus",
-        "description": "A test corpus for legal documents",
-        "category": "legal",
-        "is_public": True
-    }
-    corpus_id = test_create_corpus(api_key_1, corpus_data)
-
-    if not corpus_id:
-        print("\n❌ Failed to create corpus. Exiting.")
-        return
-
-    # Test 2: List corpuses (User 1 should see it)
-    print_section("3. List Corpuses (User 1)")
-    test_list_corpuses(api_key_1)
-
-    # Test 3: List corpuses (User 2 should NOT see it - not approved yet)
-    print_section("4. List Corpuses (User 2 - Before Permission)")
-    corpuses = test_list_corpuses(api_key_2)
-    if not any(c['id'] == corpus_id for c in corpuses):
-        print("✅ User 2 correctly cannot see unapproved corpus")
-    else:
-        print("⚠️  User 2 can see unapproved corpus (unexpected)")
-
-    # Test 4: Get corpus details
-    print_section("5. Get Corpus Details (User 1)")
-    test_get_corpus_details(api_key_1, corpus_id)
-
-    # Test 5: Update corpus metadata
-    print_section("6. Update Corpus Metadata (User 1)")
-    test_update_corpus(api_key_1, corpus_id, {
-        "description": "Updated description for legal corpus",
-        "category": "legal-updated"
-    })
-
-    # Test 6: Grant permission to User 2
-    print_section("7. Grant Permission (User 1 → User 2)")
-    test_grant_permission(api_key_1, corpus_id, TEST_USER_2["username"], "read")
-
-    # Test 7: User 2 can now see the corpus
-    print_section("8. List Corpuses (User 2 - After Permission)")
-    corpuses = test_list_corpuses(api_key_2)
-    if any(c['id'] == corpus_id for c in corpuses):
-        print("✅ User 2 can now see corpus after permission grant")
-
-    # Test 8: User 2 can view but not modify
-    print_section("9. Permission Enforcement (User 2)")
-    test_get_corpus_details(api_key_2, corpus_id)
-    test_permission_denied(api_key_2, corpus_id, "update")
-    test_permission_denied(api_key_2, corpus_id, "delete")
-
-    # Test 9: Revoke permission
-    print_section("10. Revoke Permission (User 1)")
-    test_revoke_permission(api_key_1, corpus_id, TEST_USER_2["username"])
-
-    # Test 10: User 2 can no longer see it
-    print_section("11. Verify Permission Revoked (User 2)")
-    corpuses = test_list_corpuses(api_key_2)
-    if not any(c['id'] == corpus_id for c in corpuses):
-        print("✅ User 2 correctly cannot see corpus after revocation")
-
-    # Test 11: Delete corpus
-    print_section("12. Delete Corpus (User 1)")
-    test_delete_corpus(api_key_1, corpus_id)
-
-    # Test 12: Verify deletion
-    print_section("13. Verify Deletion")
-    corpuses = test_list_corpuses(api_key_1)
-    if not any(c['id'] == corpus_id for c in corpuses):
-        print("✅ Corpus successfully deleted")
-
-    print_section("TEST SUITE COMPLETE")
-    print("✅ All core CRUD operations tested successfully!")
-    print("\nNext steps:")
-    print("  - Add subscription endpoints")
-    print("  - Add versioning endpoints")
-    print("  - Add admin approval endpoints")
+    detail = client.get(f"/api/v1/corpus/{corpus_id}", headers=auth(other_key)).json()
+    assert detail["user_permission"] == "admin"
+    assert sum(1 for p in detail["permissions"] if p["username"] == "bob") == 1
 
 
-if __name__ == "__main__":
-    try:
-        main()
-    except requests.exceptions.ConnectionError:
-        print("\n❌ ERROR: Cannot connect to API server")
-        print("Please start the API server first:")
-        print("  python run_app.py")
-        print("or")
-        print("  uvicorn api.app:app --reload")
-    except Exception as e:
-        print(f"\n❌ ERROR: {e}")
-        import traceback
-        traceback.print_exc()
+def test_grant_permission_to_unknown_user_returns_404(client, api_key):
+    corpus_id = create_corpus(client, api_key)
+
+    response = grant(client, api_key, corpus_id, "nobody", "read")
+
+    assert response.status_code == 404, response.text
+
+
+def test_revoke_permission_removes_access(client, api_key, other_key):
+    corpus_id = create_corpus(client, api_key, is_public=False)
+    assert grant(client, api_key, corpus_id, "bob", "read").status_code == 200
+
+    response = client.delete(
+        f"/api/v1/corpus/{corpus_id}/permissions/bob", headers=auth(api_key)
+    )
+
+    assert response.status_code == 200, response.text
+    assert corpus_id not in corpus_ids(client, other_key)
+    denied = client.get(f"/api/v1/corpus/{corpus_id}", headers=auth(other_key))
+    assert denied.status_code == 403, denied.text
+
+
+def test_cannot_revoke_the_owners_permission(client, api_key):
+    corpus_id = create_corpus(client, api_key)
+
+    response = client.delete(
+        f"/api/v1/corpus/{corpus_id}/permissions/alice", headers=auth(api_key)
+    )
+
+    assert response.status_code == 400, response.text
+
+
+# --- Delete ---------------------------------------------------------------
+
+
+def test_delete_corpus_as_owner(client, api_key):
+    corpus_id = create_corpus(client, api_key)
+
+    response = client.delete(f"/api/v1/corpus/{corpus_id}", headers=auth(api_key))
+
+    assert response.status_code == 200, response.text
+    assert corpus_ids(client, api_key) == set()
+    assert client.get(f"/api/v1/corpus/{corpus_id}", headers=auth(api_key)).status_code == 404
+
+
+# --- Versions -------------------------------------------------------------
+
+
+def test_list_versions_returns_the_version_created_with_the_corpus(client, api_key):
+    corpus_id = create_corpus(client, api_key)
+
+    response = client.get(f"/api/v1/corpus/{corpus_id}/versions", headers=auth(api_key))
+
+    assert response.status_code == 200, response.text
+    versions = response.json()
+    assert [v["version"] for v in versions] == [1]
+    assert versions[0]["created_by"] == "alice"
+    assert versions[0]["chunk_count"] == 0
+    assert versions[0]["file_count"] == 0
+
+
+def test_create_version_increments_and_records_the_creator(client, api_key):
+    corpus_id = create_corpus(client, api_key)
+
+    response = client.post(
+        f"/api/v1/corpus/{corpus_id}/versions",
+        json={"description": "Added Q1 documents"},
+        headers=auth(api_key),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["version"] == 2
+    assert body["description"] == "Added Q1 documents"
+    assert body["created_by"] == "alice"
+
+    detail = client.get(f"/api/v1/corpus/{corpus_id}", headers=auth(api_key)).json()
+    assert detail["corpus"]["version"] == 2
+
+
+def test_created_version_is_listed_ahead_of_the_original(client, api_key):
+    corpus_id = create_corpus(client, api_key)
+    assert (
+        client.post(
+            f"/api/v1/corpus/{corpus_id}/versions",
+            json={"description": "second"},
+            headers=auth(api_key),
+        ).status_code
+        == 200
+    )
+
+    response = client.get(f"/api/v1/corpus/{corpus_id}/versions", headers=auth(api_key))
+
+    assert response.status_code == 200, response.text
+    versions = response.json()
+    assert [v["version"] for v in versions] == [2, 1]
+    assert versions[0]["description"] == "second"
+
+
+def test_version_endpoints_agree_with_corpus_detail_on_field_names(client, api_key):
+    """All three call sites build CorpusVersionInfo; they must agree on its shape."""
+    corpus_id = create_corpus(client, api_key)
+
+    created = client.post(
+        f"/api/v1/corpus/{corpus_id}/versions",
+        json={"description": "snapshot"},
+        headers=auth(api_key),
+    )
+    assert created.status_code == 200, created.text
+    listed = client.get(f"/api/v1/corpus/{corpus_id}/versions", headers=auth(api_key))
+    assert listed.status_code == 200, listed.text
+    detail = client.get(f"/api/v1/corpus/{corpus_id}", headers=auth(api_key))
+    assert detail.status_code == 200, detail.text
+
+    from_create = created.json()
+    from_list = next(v for v in listed.json() if v["version"] == 2)
+    from_detail = next(v for v in detail.json()["versions"] if v["version"] == 2)
+
+    assert from_create.keys() == from_list.keys() == from_detail.keys()
+    assert from_list == from_detail
+    assert from_create["created_by"] == from_list["created_by"] == "alice"
+
+
+def test_below_admin_permission_cannot_create_a_version(client, api_key, other_key):
+    corpus_id = create_corpus(client, api_key, is_public=False)
+    assert grant(client, api_key, corpus_id, "bob", "write").status_code == 200
+
+    response = client.post(
+        f"/api/v1/corpus/{corpus_id}/versions",
+        json={"description": "unauthorized"},
+        headers=auth(other_key),
+    )
+
+    assert response.status_code == 403, response.text
+
+
+def test_stranger_cannot_list_versions_of_a_private_corpus(client, api_key, other_key):
+    corpus_id = create_corpus(client, api_key, is_public=False)
+
+    response = client.get(f"/api/v1/corpus/{corpus_id}/versions", headers=auth(other_key))
+
+    assert response.status_code == 403, response.text
+
+
+# --- Permission hierarchy: owner > admin > write > read -------------------
+
+
+@pytest.mark.parametrize("permission", ["read", "write", "admin"])
+def test_granted_permissions_never_allow_deleting_a_corpus(
+    client, api_key, other_key, permission
+):
+    """Delete requires "owner", which grant_permission cannot hand out."""
+    corpus_id = create_corpus(client, api_key, is_public=False)
+    assert grant(client, api_key, corpus_id, "bob", permission).status_code == 200
+
+    response = client.delete(f"/api/v1/corpus/{corpus_id}", headers=auth(other_key))
+
+    assert response.status_code == 403, response.text
+
+
+@pytest.mark.parametrize("permission", ["read", "write"])
+def test_below_admin_permission_cannot_update_or_share(
+    client, api_key, other_key, permission
+):
+    corpus_id = create_corpus(client, api_key, is_public=False)
+    assert grant(client, api_key, corpus_id, "bob", permission).status_code == 200
+
+    update = client.patch(
+        f"/api/v1/corpus/{corpus_id}",
+        json={"description": "unauthorized"},
+        headers=auth(other_key),
+    )
+    assert update.status_code == 403, update.text
+
+    assert grant(client, other_key, corpus_id, "bob", "admin").status_code == 403
+
+
+def test_admin_permission_can_update_and_share(
+    client, api_key, other_key, register_api_user
+):
+    corpus_id = create_corpus(client, api_key, is_public=False)
+    assert grant(client, api_key, corpus_id, "bob", "admin").status_code == 200
+    carol_key = register_api_user("carol")
+
+    update = client.patch(
+        f"/api/v1/corpus/{corpus_id}",
+        json={"description": "edited by an admin"},
+        headers=auth(other_key),
+    )
+
+    assert update.status_code == 200, update.text
+    assert update.json()["description"] == "edited by an admin"
+    assert grant(client, other_key, corpus_id, "carol", "read").status_code == 200
+    assert corpus_id in corpus_ids(client, carol_key)
+
+
+def test_stranger_cannot_update_or_delete_a_public_corpus(client, api_key, other_key):
+    """is_public only shortcuts the read tier - update/delete still need admin/owner."""
+    corpus_id = create_corpus(client, api_key)
+
+    update = client.patch(
+        f"/api/v1/corpus/{corpus_id}",
+        json={"description": "unauthorized"},
+        headers=auth(other_key),
+    )
+    assert update.status_code == 403, update.text
+
+    delete = client.delete(f"/api/v1/corpus/{corpus_id}", headers=auth(other_key))
+    assert delete.status_code == 403, delete.text

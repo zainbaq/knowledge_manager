@@ -5,6 +5,11 @@ from pathlib import Path
 from fastapi import HTTPException
 from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY
 
+# Names that must never map to a real account, on any auth path. Local
+# registration refuses these outright; the Cognito path namespaces them
+# (see users._namespace_reserved_username).
+RESERVED_USERNAMES = frozenset({'admin', 'root', 'system', 'api', 'test', 'user'})
+
 
 def validate_username(username: str) -> str:
     """
@@ -44,8 +49,7 @@ def validate_username(username: str) -> str:
         )
 
     # Block reserved system names
-    reserved = {'admin', 'root', 'system', 'api', 'test', 'user'}
-    if username.lower() in reserved:
+    if username.lower() in RESERVED_USERNAMES:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Username is reserved"

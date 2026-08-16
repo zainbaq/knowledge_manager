@@ -53,8 +53,8 @@ NEXT_PUBLIC_COGNITO_CLIENT_ID=your-app-client-id
 NEXT_PUBLIC_COGNITO_DOMAIN=your-domain.auth.region.amazoncognito.com
 
 # Redirect URLs (must match Cognito app client settings)
-NEXT_PUBLIC_REDIRECT_SIGN_IN=http://localhost:3000/auth/callback
-NEXT_PUBLIC_REDIRECT_SIGN_OUT=http://localhost:3000
+NEXT_PUBLIC_REDIRECT_SIGN_IN=http://localhost:8511/auth/callback
+NEXT_PUBLIC_REDIRECT_SIGN_OUT=http://localhost:8511
 ```
 
 ### Amplify Configuration (`lib/auth/config.ts`)
@@ -71,8 +71,8 @@ const authConfig: ResourcesConfig = {
         oauth: {
           domain: process.env.NEXT_PUBLIC_COGNITO_DOMAIN || '',
           scopes: ['openid', 'email', 'phone'],
-          redirectSignIn: [process.env.NEXT_PUBLIC_REDIRECT_SIGN_IN || 'http://localhost:3000/auth/callback'],
-          redirectSignOut: [process.env.NEXT_PUBLIC_REDIRECT_SIGN_OUT || 'http://localhost:3000'],
+          redirectSignIn: [process.env.NEXT_PUBLIC_REDIRECT_SIGN_IN || 'http://localhost:8511/auth/callback'],
+          redirectSignOut: [process.env.NEXT_PUBLIC_REDIRECT_SIGN_OUT || 'http://localhost:8511'],
           responseType: 'code',
         },
       },

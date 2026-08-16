@@ -10,7 +10,6 @@ Complete API reference for the Knowledge Manager REST API and MCP endpoints.
 - [Document Management](#document-management)
 - [Query Operations](#query-operations)
 - [Corpus Management](#corpus-management)
-- [Admin Operations](#admin-operations)
 - [MCP Protocol](#mcp-protocol)
 - [Error Responses](#error-responses)
 - [Rate Limiting](#rate-limiting)
@@ -389,6 +388,10 @@ Create a new curated corpus.
 }
 ```
 
+> `is_approved` always equals `is_public` - there is no separate moderation
+> step. A corpus becomes visible to other users the moment its owner sets
+> `is_public: true`. The field is kept in the response for schema stability.
+
 ---
 
 ### Upload Corpus Files
@@ -418,15 +421,14 @@ Upload files to a corpus.
 
 ### List Corpuses
 
-List all accessible corpuses with optional filtering.
+List every corpus the caller can access: corpuses they own, corpuses that are
+public, and corpuses an owner has explicitly granted them permission on. There
+are no query parameters - filtering (by category, search text, etc.) is a
+client-side concern.
 
 **Endpoint:** `GET /api/v1/corpus/`
 
 **Authentication:** Required
-
-**Query Parameters:**
-- `category`: Filter by category (optional)
-- `approved_only`: Show only approved corpuses (default: true)
 
 **Response:** `200 OK`
 ```json
@@ -440,8 +442,8 @@ List all accessible corpuses with optional filtering.
       "is_public": true,
       "is_approved": true,
       "chunk_count": 1523,
-      "owner_username": "admin",
-      "user_permission": "viewer"
+      "owner_username": "alice",
+      "user_permission": "read"
     }
   ]
 }
@@ -473,8 +475,8 @@ Get detailed information about a specific corpus.
   "is_approved": true,
   "chunk_count": 1523,
   "file_count": 15,
-  "owner_username": "admin",
-  "user_permission": "viewer",
+  "owner_username": "alice",
+  "user_permission": "read",
   "created_at": "2024-01-01T00:00:00Z",
   "updated_at": "2024-01-15T10:30:00Z"
 }
@@ -560,65 +562,53 @@ Delete a corpus and all its data.
 
 ---
 
-## Admin Operations
+## Usage Statistics
 
-### List All Corpuses (Admin)
+There is no site-wide admin role. Usage stats are either self-service or
+scoped to a specific corpus's own owner/collaborators.
 
-List all corpuses in the system (admin only).
+### My Usage
 
-**Endpoint:** `GET /api/v1/admin/corpuses`
+Usage statistics for the authenticated caller, across every corpus they have
+used. Always scoped to the caller - there is no user ID parameter.
 
-**Authentication:** Required (admin user)
+**Endpoint:** `GET /api/v1/user/usage`
+
+**Authentication:** Required
 
 **Response:** `200 OK`
 ```json
 {
-  "corpuses": [
-    {
-      "id": 42,
-      "name": "us_contract_law",
-      "owner_username": "alice",
-      "is_approved": false,
-      "is_public": true,
-      "created_at": "2024-01-01T00:00:00Z"
-    }
-  ]
+  "user_id": 7,
+  "username": "alice",
+  "total_actions": 42,
+  "total_queries": 39,
+  "last_access": 1755302400
 }
 ```
 
 ---
 
-### Approve Corpus
+### Corpus Usage
 
-Approve a corpus for public use (admin only).
+Usage statistics for one corpus.
 
-**Endpoint:** `POST /api/v1/admin/corpuses/{corpus_id}/approve`
+**Endpoint:** `GET /api/v1/corpus/{corpus_id}/usage`
 
-**Authentication:** Required (admin user)
-
-**Response:** `200 OK`
-```json
-{
-  "message": "Corpus 'US Contract Law Reference' approved",
-  "corpus": { ... }
-}
-```
-
----
-
-### Revoke Corpus Approval
-
-Revoke corpus approval (admin only).
-
-**Endpoint:** `POST /api/v1/admin/corpuses/{corpus_id}/revoke`
-
-**Authentication:** Required (admin user)
+**Authentication:** Required. Caller must hold **admin**-tier permission on
+this specific corpus - the owner, by default, or anyone the owner has granted
+`admin` via `POST /api/v1/corpus/{corpus_id}/permissions`. This is a
+per-corpus role, not a site-wide one.
 
 **Response:** `200 OK`
 ```json
 {
-  "message": "Approval revoked for corpus 'US Contract Law Reference'",
-  "corpus": { ... }
+  "corpus_id": 42,
+  "corpus_name": "us_contract_law",
+  "unique_users": 11,
+  "total_actions": 340,
+  "total_queries": 318,
+  "last_access": 1755302400
 }
 ```
 
@@ -850,8 +840,6 @@ X-MCP-Error-Code: validation.empty_query
 
 #### Authorization Errors (403)
 - `auth.insufficient_permissions` - User lacks permission
-- `auth.corpus_not_approved` - Corpus not approved
-- `auth.admin_required` - Admin access required
 
 #### Validation Errors (422)
 - `validation.invalid_collection_name` - Invalid collection name

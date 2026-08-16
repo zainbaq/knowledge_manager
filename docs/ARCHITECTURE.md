@@ -21,7 +21,7 @@ Knowledge Manager is a local knowledge management solution that enables semantic
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Client Layer                            │
 ├─────────────────┬───────────────────────┬──────────────────────┤
-│  Streamlit UI   │   MCP Clients (AI)    │   REST API Clients   │
+│  Next.js UI     │   MCP Clients (AI)    │   REST API Clients   │
 └─────────────────┴───────────────────────┴──────────────────────┘
                               │
                               ▼
@@ -68,7 +68,7 @@ Knowledge Manager is a local knowledge management solution that enables semantic
 
 ### 1. Presentation Layer
 
-**Streamlit UI** (`ui/`)
+**Next.js frontend** (`next/`)
 - Multi-page application for user interaction
 - File upload, query, and management interfaces
 - Session-based authentication
@@ -465,7 +465,7 @@ Response Formation
 - **Rate Limiting:** slowapi 0.1.9
 
 ### Frontend
-- **UI Framework:** Streamlit 1.31.1
+- **UI Framework:** Next.js 16 (React 19)
 - **HTTP Client:** requests 2.31.0
 
 ### Document Processing
