@@ -6,6 +6,7 @@ import {
   getCurrentUser,
   fetchUserAttributes,
   signOut as amplifySignOut,
+  signInWithRedirect,
   type AuthUser,
 } from 'aws-amplify/auth';
 import { configureAmplify } from '@/lib/auth/config';
@@ -22,6 +23,7 @@ interface AuthContextType {
   user: ExtendedUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   checkAuth: () => Promise<boolean>;
 }
@@ -30,6 +32,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
   isAuthenticated: false,
+  signIn: async () => {},
   signOut: async () => {},
   checkAuth: async () => false,
 });
@@ -73,6 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  const signIn = useCallback(async () => {
+    configureAmplify();
+    await signInWithRedirect();
   }, []);
 
   const signOut = useCallback(async () => {
@@ -130,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
+        signIn,
         signOut,
         checkAuth,
       }}

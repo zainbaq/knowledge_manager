@@ -66,6 +66,9 @@ services:
         - NEXT_PUBLIC_COGNITO_DOMAIN=${COGNITO_DOMAIN:-}
         - NEXT_PUBLIC_REDIRECT_SIGN_IN=${NEXT_PUBLIC_REDIRECT_SIGN_IN:-http://localhost:8511/auth/callback}
         - NEXT_PUBLIC_REDIRECT_SIGN_OUT=${NEXT_PUBLIC_REDIRECT_SIGN_OUT:-http://localhost:8511}
+        # The unified login this app bounces through instead of showing its
+        # own login page - see next/src/lib/auth/unifiedLogin.ts.
+        - NEXT_PUBLIC_HOME_PORTAL_URL=${NEXT_PUBLIC_HOME_PORTAL_URL:-https://home.promethean-labs.co}
     ports:
       - "8511:8501"
     environment:
@@ -79,6 +82,7 @@ services:
       - NEXT_PUBLIC_COGNITO_DOMAIN=${COGNITO_DOMAIN:-}
       - NEXT_PUBLIC_REDIRECT_SIGN_IN=${NEXT_PUBLIC_REDIRECT_SIGN_IN:-http://localhost:8511/auth/callback}
       - NEXT_PUBLIC_REDIRECT_SIGN_OUT=${NEXT_PUBLIC_REDIRECT_SIGN_OUT:-http://localhost:8511}
+      - NEXT_PUBLIC_HOME_PORTAL_URL=${NEXT_PUBLIC_HOME_PORTAL_URL:-https://home.promethean-labs.co}
     depends_on:
       backend:
         condition: service_healthy
