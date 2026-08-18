@@ -2,17 +2,24 @@
 #
 # Container-internal ports match the other Promethean apps (backend 8000,
 # frontend 8501) so one Traefik label set and one compose template covers every
-# service. Published host ports are offset per app (8010/8511 here, 8000/8501
-# for the data agent) so several apps can run locally at once. On the
-# consolidated host nothing is published at all - Traefik reaches the containers
-# over the Docker network.
+# service. On the consolidated host (promethean-infra), nothing is published
+# to the host at all - Traefik reaches these containers by service name over
+# the shared `promethean_edge` network, joined below. For a fully standalone
+# local run without the shared infra stack, add back a `ports:` mapping
+# temporarily (e.g. "8010:8000" / "8511:8501") - just don't commit it.
 services:
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8010:8000"
+    # Explicit, globally-unique name: on the shared `promethean_edge` network,
+    # every app's compose file has a service literally called "backend" -
+    # without this, Compose's default same-named network alias would collide
+    # across projects. This is also the exact value the-jarvis-project-agent-server's
+    # KM_SERVER_URL should point at (see that repo's backend/.env.example).
+    container_name: knowledge-manager-backend
+    networks:
+      - promethean_edge
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:?OPENAI_API_KEY is required}
       - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
@@ -58,7 +65,7 @@ services:
       args:
         # Consumed by next.config.ts's rewrites(), which Next evaluates at build
         # time - runtime env alone is not enough (see next/Dockerfile).
-        - BACKEND_URL=http://backend:8000
+        - BACKEND_URL=http://knowledge-manager-backend:8000
         # NEXT_PUBLIC_* values are inlined into the bundle at build time - they
         # must be build args, not just runtime env, or Amplify ships unconfigured.
         - NEXT_PUBLIC_COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID:-}
@@ -69,10 +76,11 @@ services:
         # The unified login this app bounces through instead of showing its
         # own login page - see next/src/lib/auth/unifiedLogin.ts.
         - NEXT_PUBLIC_HOME_PORTAL_URL=${NEXT_PUBLIC_HOME_PORTAL_URL:-https://home.promethean-labs.co}
-    ports:
-      - "8511:8501"
+    container_name: knowledge-manager-frontend
+    networks:
+      - promethean_edge
     environment:
-      - BACKEND_URL=http://backend:8000
+      - BACKEND_URL=http://knowledge-manager-backend:8000
       - NODE_ENV=production
       - PORT=8501
       # Also supplied at runtime for the dev-stage override: `next dev` reads
@@ -97,6 +105,19 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.knowledge-manager.rule=Host(`knowledge-manager.promethean-labs.co`)"
+      - "traefik.http.routers.knowledge-manager.entrypoints=web"
+      - "traefik.http.services.knowledge-manager.loadbalancer.server.port=8501"
+
+networks:
+  # Created by promethean-infra's docker-compose.yml on the consolidated
+  # host. For a fully standalone local run, comment out every `networks:`
+  # block in this file (both services') and this declaration instead of
+  # trying to satisfy `external: true` with nothing providing the network.
+  promethean_edge:
+    external: true
 
 volumes:
   vector_index:
